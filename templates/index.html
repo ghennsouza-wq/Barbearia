@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block conteudo %}
+<h1>Registrar Corte</h1>
+<form method="post" action="/registrar">
+    Cliente: <input type="text" name="cliente" required><br><br>
+    Barbeiro:
+    <select name="barbeiro" required>
+        <option value="Mairon">Mairon (Dono)</option>
+        <option value="Gordinho">Gordinho</option>
+        <option value="Alemão">Alemão</option>
+    </select><br><br>
+    Cabelo: <input type="number" step="0.01" name="cabelo"><br><br>
+    Barba: <input type="number" step="0.01" name="barba"><br><br>
+    Sobrancelha: <input type="number" step="0.01" name="sobrancelha"><br><br>
+    Desconto: <input type="number" step="0.01" name="desconto"><br><br>
+    <button type="submit">Confirmar Registro</button>
+</form>
+
+<h2>Histórico de Cortes</h2>
+<table>
+    <tr>
+        <th>Data</th>
+        <th>Hora</th>
+        <th>Cliente</th>
+        <th>Barbeiro</th>
+        <th>Cabelo</th>
+        <th>Barba</th>
+        <th>Sobrancelha</th>
+        <th>Desconto</th>
+        <th>Valor Final</th>
+    </tr>
+    {% for linha in historico %}
+    <tr>
+        <td>{{ linha[0] }}</td>
+        <td>{{ linha[1] }}</td>
+        <td>{{ linha[2] }}</td>
+        <td>{{ linha[3] }}</td>
+        <td>R$ {{ linha[4] }}</td>
+        <td>R$ {{ linha[5] }}</td>
+        <td>R$ {{ linha[6] }}</td>
+        <td>R$ {{ linha[7] }}</td>
+        <td><b>R$ {{ linha[8] }}</b></td>
+    </tr>
+    {% endfor %}
+</table>
+
+<br>
+<a href="/download_csv" class="button">📥 Baixar Histórico em CSV</a>
+{% endblock %}

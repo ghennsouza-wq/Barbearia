@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block conteudo %}
+<h1>Registrar Venda</h1>
+
+<form method="post">
+
+    <label>Cliente:
+        <input type="text" name="cliente" required>
+    </label><br><br>
+
+    {% if tipo == "dono" %}
+    <label>Barbeiro:
+        <select name="barbeiro" required>
+            <option value="Mairon">Mairon</option>
+            <option value="Gordinho">Gordinho</option>
+            <option value="Alemão">Alemão</option>
+        </select>
+    </label><br><br>
+    {% endif %}
+
+    <label>Cabelo: <input type="number" step="0.01" name="cabelo"></label><br><br>
+    <label>Barba: <input type="number" step="0.01" name="barba"></label><br><br>
+    <label>Sobrancelha: <input type="number" step="0.01" name="sobrancelha"></label><br><br>
+    <label>Desconto: <input type="number" step="0.01" name="desconto"></label><br><br>
+
+    <button type="submit">Registrar</button>
+
+</form>
+
+<br>
+<a href="/historico" class="button">Ver Histórico</a>
+
+{% endblock %}

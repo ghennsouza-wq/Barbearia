@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Login - Barbearia</title>
+</head>
+<body>
+  <h1>Login</h1>
+  {% if erro %}
+    <p style="color:red">{{ erro }}</p>
+  {% endif %}
+  <form method="post">
+    <label>Usuário: <input type="text" name="usuario" required></label><br><br>
+    <label>Senha: <input type="password" name="senha" required></label><br><br>
+    <button type="submit">Entrar</button>
+  </form>
+</body>
+</html>

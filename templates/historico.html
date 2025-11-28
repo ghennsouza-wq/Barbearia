@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block conteudo %}
+
+<h1>Histórico de Vendas</h1>
+
+<p>Usuário: <b>{{ usuario }}</b> ({{ tipo }})</p>
+
+<a class="button" href="/registrar">Registrar Nova Venda</a>
+<a class="button" href="/download_csv">Baixar CSV</a>
+<a class="button" href="/logout">Sair</a>
+
+<br><br>
+
+{% if vendas %}
+<table>
+    <tr>
+        <th>Data</th>
+        <th>Hora</th>
+        <th>Cliente</th>
+        <th>Barbeiro</th>
+        <th>Cabelo</th>
+        <th>Barba</th>
+        <th>Sobrancelha</th>
+        <th>Desconto</th>
+        <th>Valor Total</th>
+    </tr>
+
+    {% for v in vendas %}
+    <tr>
+        <td>{{ v["Data"] }}</td>
+        <td>{{ v["Hora"] }}</td>
+        <td>{{ v["Cliente"] }}</td>
+        <td>{{ v["Barbeiro"] }}</td>
+        <td>{{ v["Cabelo"] }}</td>
+        <td>{{ v["Barba"] }}</td>
+        <td>{{ v["Sobrancelha"] }}</td>
+        <td>{{ v["Desconto"] }}</td>
+        <td><b>{{ v["Valor Total"] }}</b></td>
+    </tr>
+    {% endfor %}
+
+</table>
+
+{% else %}
+<p>Nenhuma venda registrada.</p>
+{% endif %}
+
+{% endblock %}
+

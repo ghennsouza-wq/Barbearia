@@ -97,26 +97,37 @@ def historico():
     if "usuario" not in session:
         return redirect("/login")
 
+    usuario = session["usuario"].strip().lower()
+    role = session["role"]
+
     vendas = []
 
     if os.path.exists(ARQUIVO_CSV):
         with open(ARQUIVO_CSV, newline="", encoding="utf-8") as arquivo:
             leitor = csv.DictReader(arquivo)
+
             for linha in leitor:
-                barbeiro_linha = (linha.get("barbeiro") or linha.get("Barbeiro") or "").strip().lower()
+                # pega o barbeiro da linha, independente do formato
+                barbeiro_raw = (
+                    linha.get("barbeiro")
+                    or linha.get("Barbeiro")
+                    or ""
+                )
 
+                barbeiro = barbeiro_raw.strip().lower()
 
-                if session["role"] == "admin" or barbeiro_linha == session["usuario"]:
+                # regra de visibilidade
+                if role == "admin" or barbeiro == usuario:
                     vendas.append({
-                        "data": linha.get("data") or linha.get("Data"),
-                        "cliente": linha.get("cliente") or linha.get("Cliente"),
-                        "barbeiro": barbeiro_linha,
-                        "cabelo": linha.get("cabelo") or linha.get("Cabelo"),
-                        "barba": linha.get("barba") or linha.get("Barba"),
-                        "sobrancelha": linha.get("sobrancelha") or linha.get("Sobrancelha"),
+                        "data": linha.get("data") or linha.get("Data", ""),
+                        "cliente": linha.get("cliente") or linha.get("Cliente", ""),
+                        "barbeiro": barbeiro_raw,
+                        "cabelo": linha.get("cabelo") or linha.get("Cabelo", "0.00"),
+                        "barba": linha.get("barba") or linha.get("Barba", "0.00"),
+                        "sobrancelha": linha.get("sobrancelha") or linha.get("Sobrancelha", "0.00"),
                         "produto": linha.get("produto", "0.00"),
-                        "desconto": linha.get("desconto") or linha.get("Desconto"),
-                        "total": linha.get("total") or linha.get("Valor Total"),
+                        "desconto": linha.get("desconto") or linha.get("Desconto", "0.00"),
+                        "total": linha.get("total") or linha.get("Valor Total", "0.00"),
                     })
 
     return render_template("historico.html", vendas=vendas)

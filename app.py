@@ -47,34 +47,34 @@ def registrar():
 
         def valor(campo):
             try:
-                return float(request.form.get(campo) or 0)
+                return float(request.form.get(campo, 0))
             except:
-                return 0
+                return 0.0
 
         cabelo = valor("cabelo")
         barba = valor("barba")
         sobrancelha = valor("sobrancelha")
-        produto = valor("produto")
+        produto = valor("produto")   # 🔥 AQUI
         desconto = valor("desconto")
 
         total = cabelo + barba + sobrancelha + produto - desconto
         if total < 0:
             total = 0
 
-                # Define quem é o barbeiro da venda
-        if session.get("role") == "admin":
+        # define barbeiro corretamente
+        if session["role"] == "admin":
             barbeiro = request.form.get("barbeiro")
         else:
-            barbeiro = session.get("usuario")
+            barbeiro = session["usuario"]
 
         dados = {
             "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
-            "barbeiro": session["usuario"],
+            "barbeiro": barbeiro,
             "cliente": request.form.get("cliente", ""),
             "cabelo": f"{cabelo:.2f}",
             "barba": f"{barba:.2f}",
             "sobrancelha": f"{sobrancelha:.2f}",
-            "produto": f"{produto:.2f}",
+            "produto": f"{produto:.2f}",   # 🔥 AQUI
             "desconto": f"{desconto:.2f}",
             "total": f"{total:.2f}"
         }

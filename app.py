@@ -1,56 +1,33 @@
+from flask import Flask, render_template, request, redirect, session, send_file
 import csv
 import os
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, session, send_file
 
 app = Flask(__name__)
-app.secret_key = "chave_muito_segura"
+app.secret_key = "barbearia-secret"
+
+USUARIOS = {
+    "mairon": {"senha": "123", "role": "admin"},
+    "vini": {"senha": "123", "role": "barbeiro"},
+    "artur": {"senha": "123", "role": "barbeiro"}
+}
+
+ARQUIVO_CSV = "vendas.csv"
 
 
-# --------- CARREGAR USUÁRIOS ---------
-def carregar_usuarios():
-    usuarios = {}
-    with open("usuarios.csv", "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for linha in reader:
-            usuarios[linha["nome"]] = {
-                "senha": linha["senha"],
-                "tipo": linha["tipo"]
-            }
-    return usuarios
-
-
-USUARIOS = carregar_usuarios()
-
-
-# --------- LOGIN REQUERIDO ---------
-def login_required(func):
-    def wrapper(*args, **kwargs):
-        if "usuario" not in session:
-            return redirect("/login")
-        return func(*args, **kwargs)
-    wrapper.__name__ = func.__name__
-    return wrapper
-
-
-# --------- ROTAS ---------
-
-@app.route("/")
-@login_required
-def home():
-    return redirect("/registrar")
-
-
+@app.route("/", methods=["GET", "POST"])
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        nome = request.form["usuario"]
+        usuario = request.form["usuario"]
         senha = request.form["senha"]
 
-        if nome in USUARIOS and USUARIOS[nome]["senha"] == senha:
-            session["usuario"] = nome
-            return redirect("/")
-        return render_template("login.html", erro="Usuário ou senha incorretos!")
+        if usuario in USUARIOS and USUARIOS[usuario]["senha"] == senha:
+            session["usuario"] = usuario
+            session["role"] = USUARIOS[usuario]["role"]
+            return redirect("/historico")
+
+        return render_template("login.html", erro="Usuário ou senha inválidos")
 
     return render_template("login.html")
 
@@ -61,82 +38,74 @@ def logout():
     return redirect("/login")
 
 
-# --------- REGISTRO DE VENDAS ---------
 @app.route("/registrar", methods=["GET", "POST"])
-@login_required
 def registrar():
-
-    usuario = session["usuario"]
-    tipo = USUARIOS[usuario]["tipo"]
+    if "usuario" not in session:
+        return redirect("/login")
 
     if request.method == "POST":
 
-        cliente = request.form["cliente"]
+        def valor(campo):
+            try:
+                return float(request.form.get(campo, 0) or 0)
+            except ValueError:
+                return 0
 
-        if tipo == "dono":
-            barbeiro = request.form["barbeiro"]
-        else:
-            barbeiro = usuario
+        cabelo = valor("cabelo")
+        barba = valor("barba")
+        sobrancelha = valor("sobrancelha")
+        produto = valor("produto")
+        desconto = valor("desconto")
 
-        cabelo = float(request.form["cabelo"] or 0)
-        barba = float(request.form["barba"] or 0)
-        sobrancelha = float(request.form["sobrancelha"] or 0)
-        desconto = float(request.form["desconto"] or 0)
+        total = cabelo + barba + sobrancelha + produto - desconto
+        if total < 0:
+            total = 0
 
-        total = cabelo + barba + sobrancelha - desconto
+        dados = {
+            "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
+            "barbeiro": session["usuario"],
+            "cliente": request.form.get("cliente", ""),
+            "cabelo": f"{cabelo:.2f}",
+            "barba": f"{barba:.2f}",
+            "sobrancelha": f"{sobrancelha:.2f}",
+            "produto": f"{produto:.2f}",
+            "desconto": f"{desconto:.2f}",
+            "total": f"{total:.2f}"
+        }
 
-        data_atual = datetime.now()
-        data = data_atual.strftime("%Y-%m-%d")
-        hora = data_atual.strftime("%H:%M:%S")
+        arquivo_existe = os.path.exists(ARQUIVO_CSV)
 
-        novo_arquivo = not os.path.exists("vendas.csv")
-
-        with open("vendas.csv", "a", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-
-            if novo_arquivo:
-                writer.writerow(["Data", "Hora", "Cliente", "Barbeiro",
-                                 "Cabelo", "Barba", "Sobrancelha", "Desconto", "Valor Total"])
-
-            writer.writerow([
-                data, hora, cliente, barbeiro,
-                cabelo, barba, sobrancelha, desconto, total
-            ])
+        with open(ARQUIVO_CSV, "a", newline="", encoding="utf-8") as arquivo:
+            escritor = csv.DictWriter(arquivo, fieldnames=dados.keys())
+            if not arquivo_existe:
+                escritor.writeheader()
+            escritor.writerow(dados)
 
         return redirect("/historico")
 
-    return render_template("registrar.html", usuario=usuario, tipo=tipo)
+    return render_template("registrar.html")
 
 
-# --------- HISTÓRICO ---------
 @app.route("/historico")
-@login_required
 def historico():
-
-    usuario = session["usuario"]
-    tipo = USUARIOS[usuario]["tipo"]
+    if "usuario" not in session:
+        return redirect("/login")
 
     vendas = []
 
-    if os.path.exists("vendas.csv"):
-        with open("vendas.csv", "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for linha in reader:
-                if tipo == "dono" or linha["Barbeiro"] == usuario:
+    if os.path.exists(ARQUIVO_CSV):
+        with open(ARQUIVO_CSV, newline="", encoding="utf-8") as arquivo:
+            leitor = csv.DictReader(arquivo)
+            for linha in leitor:
+                if session["role"] == "admin" or linha["barbeiro"] == session["usuario"]:
                     vendas.append(linha)
 
-    return render_template("historico.html", vendas=vendas, usuario=usuario, tipo=tipo)
+    return render_template("dashboard.html", vendas=vendas)
 
 
-@app.route("/download_csv")
-@login_required
-def download_csv():
-    return send_file("vendas.csv",
-                     as_attachment=True,
-                     download_name="vendas.csv",
-                     mimetype="text/csv")
+@app.route("/download")
+def download():
+    if "usuario" not in session or session["role"] != "admin":
+        return redirect("/login")
 
-
-# --------- MAIN ---------
-if __name__ == "__main__":
-    app.run(debug=True)
+    return send_file(ARQUIVO_CSV, as_attachment=True)

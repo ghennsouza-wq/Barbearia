@@ -100,7 +100,7 @@ def historico():
                 if session["role"] == "admin" or linha["barbeiro"] == session["usuario"]:
                     vendas.append(linha)
 
-    return render_template("dashboard.html", vendas=vendas)
+    return render_template("historico.html", vendas=vendas)
 
 
 @app.route("/download")

@@ -103,10 +103,23 @@ def historico():
         with open(ARQUIVO_CSV, newline="", encoding="utf-8") as arquivo:
             leitor = csv.DictReader(arquivo)
             for linha in leitor:
-                if session["role"] == "admin" or linha["barbeiro"] == session["usuario"]:
-                    vendas.append(linha)
+                barbeiro_linha = linha.get("barbeiro") or linha.get("Barbeiro")
+
+                if session["role"] == "admin" or barbeiro_linha == session["usuario"]:
+                    vendas.append({
+                        "data": linha.get("data") or linha.get("Data"),
+                        "cliente": linha.get("cliente") or linha.get("Cliente"),
+                        "barbeiro": barbeiro_linha,
+                        "cabelo": linha.get("cabelo") or linha.get("Cabelo"),
+                        "barba": linha.get("barba") or linha.get("Barba"),
+                        "sobrancelha": linha.get("sobrancelha") or linha.get("Sobrancelha"),
+                        "produto": linha.get("produto", "0.00"),
+                        "desconto": linha.get("desconto") or linha.get("Desconto"),
+                        "total": linha.get("total") or linha.get("Valor Total"),
+                    })
 
     return render_template("historico.html", vendas=vendas)
+
 
 
 @app.route("/download")

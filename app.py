@@ -14,10 +14,6 @@ USUARIOS = {
 
 ARQUIVO_CSV = "vendas.csv"
 
-@app.errorhandler(500)
-def erro_500(e):
-    return "Erro interno. Verifique variáveis do template.", 500
-
 
 @app.route("/", methods=["GET", "POST"])
 @app.route("/login", methods=["GET", "POST"])

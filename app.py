@@ -61,6 +61,12 @@ def registrar():
         if total < 0:
             total = 0
 
+                # Define quem é o barbeiro da venda
+        if session.get("role") == "admin":
+            barbeiro = request.form.get("barbeiro")
+        else:
+            barbeiro = session.get("usuario")
+
         dados = {
             "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
             "barbeiro": session["usuario"],

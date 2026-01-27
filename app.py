@@ -51,26 +51,29 @@ def registrar():
 
         def valor(campo):
             try:
-                return float(request.form.get(campo, 0))
+                return float(request.form.get(campo, 0) or 0)
             except:
                 return 0.0
 
+        # lê os valores
         cabelo = valor("cabelo")
         barba = valor("barba")
         sobrancelha = valor("sobrancelha")
         produto = valor("produto")
         desconto = valor("desconto")
 
+        # calcula total
         total = cabelo + barba + sobrancelha + produto - desconto
         if total < 0:
             total = 0
 
-        # barbeiro correto
-        if session["role"] == "admin":
+        # barbeiro correto (admin escolhe, barbeiro normal usa session)
+        if session.get("role") == "admin":
             barbeiro = request.form.get("barbeiro")
         else:
-            barbeiro = session["usuario"]
+            barbeiro = session.get("usuario")
 
+        # monta linha para salvar
         dados = {
             "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
             "barbeiro": barbeiro,
@@ -85,19 +88,21 @@ def registrar():
 
         arquivo_existe = os.path.exists(ARQUIVO_CSV)
 
-        with open(ARQUIVO_CSV, "a", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=dados.keys())
+        with open(ARQUIVO_CSV, "a", newline="", encoding="utf-8") as arquivo:
+            escritor = csv.DictWriter(arquivo, fieldnames=dados.keys())
             if not arquivo_existe:
-                writer.writeheader()
-            writer.writerow(dados)
+                escritor.writeheader()
+            escritor.writerow(dados)
 
         return redirect("/historico")
 
+    # esse render precisa passar "tipo" para funcionar no template
     return render_template(
         "registrar.html",
-        tipo=session["role"],
-        usuario=session["usuario"]
+        tipo=session.get("role"),
+        usuario=session.get("usuario")
     )
+   
 
 
 

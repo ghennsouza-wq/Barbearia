@@ -11,17 +11,17 @@
     </label>
     <br><br>
 
-    {% if session["role"] == "admin" %}
-<label>
-    Barbeiro:
-    <select name="barbeiro" required>
-        <option value="mairon">Mairon</option>
-        <option value="vini">Vini</option>
-        <option value="artur">Artur</option>
-    </select>
-</label>
-<br><br>
-{% endif %}
+    {% if tipo == "admin" %}
+    <label>
+        Barbeiro:
+        <select name="barbeiro" required>
+            <option value="Mairon">Mairon</option>
+            <option value="Vini">Vini</option>
+            <option value="Artur">Artur</option>
+        </select>
+    </label>
+    <br><br>
+    {% endif %}
 
     <label>
         Cabelo:
@@ -61,3 +61,4 @@
 <a href="/historico" class="button">Ver Histórico</a>
 
 {% endblock %}
+

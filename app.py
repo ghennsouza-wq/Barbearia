@@ -7,9 +7,9 @@ app = Flask(__name__)
 app.secret_key = "barbearia-secret"
 
 USUARIOS = {
-    "mairon": {"senha": "123", "role": "admin"},
-    "vini": {"senha": "123", "role": "barbeiro"},
-    "artur": {"senha": "123", "role": "barbeiro"}
+    "Mairon": {"senha": "123", "role": "admin"},
+    "Vini": {"senha": "123", "role": "barbeiro"},
+    "Artur": {"senha": "123", "role": "barbeiro"}
 }
 
 ARQUIVO_CSV = "vendas.csv"

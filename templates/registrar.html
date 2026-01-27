@@ -12,15 +12,16 @@
     <br><br>
 
     {% if session["role"] == "admin" %}
-    <label>
-        Barbeiro:
-        <select name="barbeiro" required>
-            <option value="vini">Vini</option>
-            <option value="artur">Artur</option>
-        </select>
-    </label>
-    <br><br>
-    {% endif %}
+<label>
+    Barbeiro:
+    <select name="barbeiro" required>
+        <option value="mairon">Mairon</option>
+        <option value="vini">Vini</option>
+        <option value="artur">Artur</option>
+    </select>
+</label>
+<br><br>
+{% endif %}
 
     <label>
         Cabelo:

@@ -117,8 +117,8 @@ def historico():
     return render_template(
         "historico.html",
         vendas=vendas,
-        usuario=session["usuario"],   # 🔥 ESSENCIAL
-        tipo=session["role"]           # 🔥 ESSENCIAL
+        usuario=session["usuario"],
+        tipo=session["role"]
     )
 
 

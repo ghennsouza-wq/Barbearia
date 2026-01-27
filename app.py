@@ -47,25 +47,25 @@ def registrar():
 
         def valor(campo):
             try:
-                return float(request.form.get(campo, 0))
+                return float(request.form.get(campo, 0) or 0)
             except:
                 return 0.0
 
         cabelo = valor("cabelo")
         barba = valor("barba")
         sobrancelha = valor("sobrancelha")
-        produto = valor("produto")   # 🔥 AQUI
+        produto = valor("produto")
         desconto = valor("desconto")
 
         total = cabelo + barba + sobrancelha + produto - desconto
         if total < 0:
             total = 0
 
-        # define barbeiro corretamente
+        # 🔒 barbeiro SEMPRE em minúsculo
         if session["role"] == "admin":
-            barbeiro = request.form.get("barbeiro")
+            barbeiro = (request.form.get("barbeiro") or "").strip().lower()
         else:
-            barbeiro = session["usuario"]
+            barbeiro = session["usuario"].strip().lower()
 
         dados = {
             "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -74,9 +74,9 @@ def registrar():
             "cabelo": f"{cabelo:.2f}",
             "barba": f"{barba:.2f}",
             "sobrancelha": f"{sobrancelha:.2f}",
-            "produto": f"{produto:.2f}",   # 🔥 AQUI
+            "produto": f"{produto:.2f}",
             "desconto": f"{desconto:.2f}",
-            "total": f"{total:.2f}"
+            "total": f"{total:.2f}",
         }
 
         arquivo_existe = os.path.exists(ARQUIVO_CSV)
@@ -90,6 +90,7 @@ def registrar():
         return redirect("/historico")
 
     return render_template("registrar.html")
+
 
 
 @app.route("/historico")
@@ -107,31 +108,12 @@ def historico():
             leitor = csv.DictReader(arquivo)
 
             for linha in leitor:
-                # pega o barbeiro da linha, independente do formato
-                barbeiro_raw = (
-                    linha.get("barbeiro")
-                    or linha.get("Barbeiro")
-                    or ""
-                )
+                barbeiro = (linha.get("barbeiro") or "").strip().lower()
 
-                barbeiro = barbeiro_raw.strip().lower()
-
-                # regra de visibilidade
                 if role == "admin" or barbeiro == usuario:
-                    vendas.append({
-                        "data": linha.get("data") or linha.get("Data", ""),
-                        "cliente": linha.get("cliente") or linha.get("Cliente", ""),
-                        "barbeiro": barbeiro_raw,
-                        "cabelo": linha.get("cabelo") or linha.get("Cabelo", "0.00"),
-                        "barba": linha.get("barba") or linha.get("Barba", "0.00"),
-                        "sobrancelha": linha.get("sobrancelha") or linha.get("Sobrancelha", "0.00"),
-                        "produto": linha.get("produto", "0.00"),
-                        "desconto": linha.get("desconto") or linha.get("Desconto", "0.00"),
-                        "total": linha.get("total") or linha.get("Valor Total", "0.00"),
-                    })
+                    vendas.append(linha)
 
     return render_template("historico.html", vendas=vendas)
-
 
 
 @app.route("/download")
@@ -139,27 +121,29 @@ def download():
     if "usuario" not in session:
         return redirect("/login")
 
-    usuario = session["usuario"]
+    usuario = session["usuario"].strip().lower()
     role = session["role"]
 
-    # Nome do arquivo gerado
-    nome_arquivo = "vendas.csv" if role == "admin" else f"vendas_{usuario}.csv"
-
-    vendas_filtradas = []
+    vendas = []
 
     if os.path.exists(ARQUIVO_CSV):
         with open(ARQUIVO_CSV, newline="", encoding="utf-8") as arquivo:
             leitor = csv.DictReader(arquivo)
+
             for linha in leitor:
-                barbeiro_linha = (linha.get("barbeiro") or linha.get("Barbeiro") or "").strip().lower()
+                barbeiro = (linha.get("barbeiro") or "").strip().lower()
 
-                if role == "admin" or barbeiro_linha == usuario:
-                    vendas_filtradas.append(linha)
+                if role == "admin" or barbeiro == usuario:
+                    vendas.append(linha)
 
-    # Cria CSV temporário filtrado
+    if not vendas:
+        return redirect("/historico")
+
+    nome_arquivo = f"vendas_{usuario}.csv" if role != "admin" else "vendas.csv"
+
     with open(nome_arquivo, "w", newline="", encoding="utf-8") as arquivo:
-        escritor = csv.DictWriter(arquivo, fieldnames=vendas_filtradas[0].keys())
+        escritor = csv.DictWriter(arquivo, fieldnames=vendas[0].keys())
         escritor.writeheader()
-        escritor.writerows(vendas_filtradas)
+        escritor.writerows(vendas)
 
     return send_file(nome_arquivo, as_attachment=True)

@@ -19,8 +19,8 @@ ARQUIVO_CSV = "vendas.csv"
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        usuario = request.form["usuario"].strip().lower()
-        senha = request.form["senha"].strip()
+        usuario = request.form["usuario"]
+        senha = request.form["senha"]
 
         if usuario in USUARIOS and USUARIOS[usuario]["senha"] == senha:
             session["usuario"] = usuario
@@ -117,6 +117,7 @@ def historico():
         usuario=session["usuario"],
         tipo=session["role"]
     )
+
 
 
 @app.route("/download")

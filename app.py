@@ -47,7 +47,7 @@ def registrar():
 
         def valor(campo):
             try:
-                return float(request.form.get(campo, 0) or 0)
+                return float(request.form.get(campo, 0))
             except:
                 return 0.0
 
@@ -61,11 +61,11 @@ def registrar():
         if total < 0:
             total = 0
 
-        # 🔒 barbeiro SEMPRE em minúsculo
+        # barbeiro correto
         if session["role"] == "admin":
-            barbeiro = (request.form.get("barbeiro") or "").strip().lower()
+            barbeiro = request.form.get("barbeiro")
         else:
-            barbeiro = session["usuario"].strip().lower()
+            barbeiro = session["usuario"]
 
         dados = {
             "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -76,20 +76,24 @@ def registrar():
             "sobrancelha": f"{sobrancelha:.2f}",
             "produto": f"{produto:.2f}",
             "desconto": f"{desconto:.2f}",
-            "total": f"{total:.2f}",
+            "total": f"{total:.2f}"
         }
 
         arquivo_existe = os.path.exists(ARQUIVO_CSV)
 
-        with open(ARQUIVO_CSV, "a", newline="", encoding="utf-8") as arquivo:
-            escritor = csv.DictWriter(arquivo, fieldnames=dados.keys())
+        with open(ARQUIVO_CSV, "a", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=dados.keys())
             if not arquivo_existe:
-                escritor.writeheader()
-            escritor.writerow(dados)
+                writer.writeheader()
+            writer.writerow(dados)
 
         return redirect("/historico")
 
-    return render_template("registrar.html")
+    return render_template(
+        "registrar.html",
+        tipo=session["role"],
+        usuario=session["usuario"]
+    )
 
 
 
@@ -98,22 +102,21 @@ def historico():
     if "usuario" not in session:
         return redirect("/login")
 
-    usuario = session["usuario"].strip().lower()
-    role = session["role"]
-
     vendas = []
 
     if os.path.exists(ARQUIVO_CSV):
-        with open(ARQUIVO_CSV, newline="", encoding="utf-8") as arquivo:
-            leitor = csv.DictReader(arquivo)
-
-            for linha in leitor:
-                barbeiro = (linha.get("barbeiro") or "").strip().lower()
-
-                if role == "admin" or barbeiro == usuario:
+        with open(ARQUIVO_CSV, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for linha in reader:
+                if session["role"] == "admin" or linha["barbeiro"] == session["usuario"]:
                     vendas.append(linha)
 
-    return render_template("historico.html", vendas=vendas)
+    return render_template(
+        "historico.html",
+        vendas=vendas,
+        usuario=session["usuario"],
+        tipo=session["role"]
+    )
 
 
 @app.route("/download")
@@ -121,29 +124,23 @@ def download():
     if "usuario" not in session:
         return redirect("/login")
 
-    usuario = session["usuario"].strip().lower()
-    role = session["role"]
-
     vendas = []
 
     if os.path.exists(ARQUIVO_CSV):
-        with open(ARQUIVO_CSV, newline="", encoding="utf-8") as arquivo:
-            leitor = csv.DictReader(arquivo)
-
-            for linha in leitor:
-                barbeiro = (linha.get("barbeiro") or "").strip().lower()
-
-                if role == "admin" or barbeiro == usuario:
+        with open(ARQUIVO_CSV, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for linha in reader:
+                if session["role"] == "admin" or linha["barbeiro"] == session["usuario"]:
                     vendas.append(linha)
 
     if not vendas:
         return redirect("/historico")
 
-    nome_arquivo = f"vendas_{usuario}.csv" if role != "admin" else "vendas.csv"
+    caminho = f"vendas_{session['usuario']}.csv"
 
-    with open(nome_arquivo, "w", newline="", encoding="utf-8") as arquivo:
-        escritor = csv.DictWriter(arquivo, fieldnames=vendas[0].keys())
-        escritor.writeheader()
-        escritor.writerows(vendas)
+    with open(caminho, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=vendas[0].keys())
+        writer.writeheader()
+        writer.writerows(vendas)
 
-    return send_file(nome_arquivo, as_attachment=True)
+    return send_file(caminho, as_attachment=True)

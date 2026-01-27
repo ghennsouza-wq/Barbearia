@@ -4,10 +4,17 @@
 
 <h1>Histórico de Vendas</h1>
 
-<p>Usuário: <b>{{ usuario }}</b> ({{ tipo }})</p>
+<p>
+  Usuário: <b>{{ session["usuario"] }}</b>
+  ({{ session["role"] }})
+</p>
 
 <a class="button" href="/registrar">Registrar Nova Venda</a>
-<a class="button" href="/download_csv">Baixar CSV</a>
+
+{% if session["role"] == "admin" %}
+<a class="button" href="/download">Baixar CSV</a>
+{% endif %}
+
 <a class="button" href="/logout">Sair</a>
 
 <br><br>
@@ -16,32 +23,30 @@
 <table>
     <tr>
         <th>Data</th>
-        <th>Hora</th>
         <th>Cliente</th>
         <th>Barbeiro</th>
         <th>Cabelo</th>
         <th>Barba</th>
         <th>Sobrancelha</th>
+        <th>Produto</th>
         <th>Desconto</th>
-        <th>Valor Total</th>
+        <th>Total</th>
     </tr>
 
     {% for v in vendas %}
     <tr>
-        <td>{{ v["Data"] }}</td>
-        <td>{{ v["Hora"] }}</td>
-        <td>{{ v["Cliente"] }}</td>
-        <td>{{ v["Barbeiro"] }}</td>
-        <td>{{ v["Cabelo"] }}</td>
-        <td>{{ v["Barba"] }}</td>
-        <td>{{ v["Sobrancelha"] }}</td>
-        <td>{{ v["Desconto"] }}</td>
-        <td><b>{{ v["Valor Total"] }}</b></td>
+        <td>{{ v["data"] }}</td>
+        <td>{{ v["cliente"] }}</td>
+        <td>{{ v["barbeiro"] }}</td>
+        <td>R$ {{ v["cabelo"] }}</td>
+        <td>R$ {{ v["barba"] }}</td>
+        <td>R$ {{ v["sobrancelha"] }}</td>
+        <td>R$ {{ v["produto"] }}</td>
+        <td>R$ {{ v["desconto"] }}</td>
+        <td><b>R$ {{ v["total"] }}</b></td>
     </tr>
     {% endfor %}
-
 </table>
-
 {% else %}
 <p>Nenhuma venda registrada.</p>
 {% endif %}

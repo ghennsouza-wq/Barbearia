@@ -125,7 +125,30 @@ def historico():
 
 @app.route("/download")
 def download():
-    if "usuario" not in session or session["role"] != "admin":
+    if "usuario" not in session:
         return redirect("/login")
 
-    return send_file(ARQUIVO_CSV, as_attachment=True)
+    usuario = session["usuario"]
+    role = session["role"]
+
+    # Nome do arquivo gerado
+    nome_arquivo = "vendas.csv" if role == "admin" else f"vendas_{usuario}.csv"
+
+    vendas_filtradas = []
+
+    if os.path.exists(ARQUIVO_CSV):
+        with open(ARQUIVO_CSV, newline="", encoding="utf-8") as arquivo:
+            leitor = csv.DictReader(arquivo)
+            for linha in leitor:
+                barbeiro_linha = (linha.get("barbeiro") or linha.get("Barbeiro") or "").strip().lower()
+
+                if role == "admin" or barbeiro_linha == usuario:
+                    vendas_filtradas.append(linha)
+
+    # Cria CSV temporário filtrado
+    with open(nome_arquivo, "w", newline="", encoding="utf-8") as arquivo:
+        escritor = csv.DictWriter(arquivo, fieldnames=vendas_filtradas[0].keys())
+        escritor.writeheader()
+        escritor.writerows(vendas_filtradas)
+
+    return send_file(nome_arquivo, as_attachment=True)

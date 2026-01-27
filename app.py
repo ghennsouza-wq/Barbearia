@@ -102,8 +102,6 @@ def registrar():
         tipo=session.get("role"),
         usuario=session.get("usuario")
     )
-   
-
 
 
 @app.route("/historico")
@@ -114,17 +112,17 @@ def historico():
     vendas = []
 
     if os.path.exists(ARQUIVO_CSV):
-        with open(ARQUIVO_CSV, newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for linha in reader:
+        with open(ARQUIVO_CSV, newline="", encoding="utf-8") as arquivo:
+            leitor = csv.DictReader(arquivo)
+            for linha in leitor:
                 if session["role"] == "admin" or linha["barbeiro"] == session["usuario"]:
                     vendas.append(linha)
 
     return render_template(
         "historico.html",
         vendas=vendas,
-        usuario=session["usuario"],
-        tipo=session["role"]
+        usuario=session["usuario"],   # 🔥 ESSENCIAL
+        tipo=session["role"]           # 🔥 ESSENCIAL
     )
 
 

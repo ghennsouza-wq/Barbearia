@@ -47,8 +47,8 @@ def registrar():
 
         def valor(campo):
             try:
-                return float(request.form.get(campo, 0) or 0)
-            except ValueError:
+                return float(request.form.get(campo) or 0)
+            except:
                 return 0
 
         cabelo = valor("cabelo")

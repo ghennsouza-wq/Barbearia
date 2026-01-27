@@ -7,9 +7,9 @@ app = Flask(__name__)
 app.secret_key = "barbearia-secret"
 
 USUARIOS = {
-    "Mairon": {"senha": "1234", "role": "admin"},
-    "Vini": {"senha": "111", "role": "barbeiro"},
-    "Artur": {"senha": "222", "role": "barbeiro"}
+    "mairon": {"senha": "1234", "role": "admin"},
+    "vini": {"senha": "111", "role": "barbeiro"},
+    "artur": {"senha": "222", "role": "barbeiro"}
 }
 
 ARQUIVO_CSV = "vendas.csv"
@@ -19,8 +19,8 @@ ARQUIVO_CSV = "vendas.csv"
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        usuario = request.form["usuario"]
-        senha = request.form["senha"]
+        usuario = request.form["usuario"].strip().lower()
+        senha = request.form["senha"].strip()
 
         if usuario in USUARIOS and USUARIOS[usuario]["senha"] == senha:
             session["usuario"] = usuario

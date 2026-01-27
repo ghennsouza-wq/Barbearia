@@ -103,7 +103,8 @@ def historico():
         with open(ARQUIVO_CSV, newline="", encoding="utf-8") as arquivo:
             leitor = csv.DictReader(arquivo)
             for linha in leitor:
-                barbeiro_linha = (linha.get("barbeiro") or linha.get("Barbeiro") or "").lower()
+                barbeiro_linha = (linha.get("barbeiro") or linha.get("Barbeiro") or "").strip().lower()
+
 
                 if session["role"] == "admin" or barbeiro_linha == session["usuario"]:
                     vendas.append({

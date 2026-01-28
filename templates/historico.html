@@ -5,14 +5,11 @@
 <h1>Histórico de Vendas</h1>
 
 <p>
-  Usuário: <b>{{ session.get("usuario") }}</b>
-  ({{ session.get("role") }})
+  Usuário: <b>{{ usuario }}</b> ({{ tipo }})
 </p>
 
 <a class="button" href="/registrar">Registrar Nova Venda</a>
-
 <a class="button" href="/download">Baixar CSV</a>
-
 <a class="button" href="/logout">Sair</a>
 
 <br><br>
@@ -33,15 +30,15 @@
 
     {% for v in vendas %}
     <tr>
-        <td>{{ v["data"] }}</td>
-        <td>{{ v["cliente"] }}</td>
-        <td>{{ v["barbeiro"] }}</td>
-        <td>R$ {{ v["cabelo"] }}</td>
-        <td>R$ {{ v["barba"] }}</td>
-        <td>R$ {{ v["sobrancelha"] }}</td>
-        <td>R$ {{ v["produto"] }}</td>
-        <td>R$ {{ v["desconto"] }}</td>
-        <td><b>R$ {{ v["total"] }}</b></td>
+        <td>{{ v.data }}</td>
+        <td>{{ v.cliente }}</td>
+        <td>{{ v.barbeiro }}</td>
+        <td>R$ {{ v.cabelo }}</td>
+        <td>R$ {{ v.barba }}</td>
+        <td>R$ {{ v.sobrancelha }}</td>
+        <td>R$ {{ v.produto }}</td>
+        <td>R$ {{ v.desconto }}</td>
+        <td><b>R$ {{ v.total }}</b></td>
     </tr>
     {% endfor %}
 </table>

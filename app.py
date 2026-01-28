@@ -107,18 +107,40 @@ def historico():
 
     vendas = []
 
+    # 🔎 pega filtros da URL
+    data_inicio = request.args.get("data_inicio")
+    data_fim = request.args.get("data_fim")
+
     if os.path.exists(ARQUIVO_CSV):
-        with open(ARQUIVO_CSV, newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for linha in reader:
-                if session.get("role") == "admin" or linha["barbeiro"] == session.get("usuario"):
-                    vendas.append(linha)
+        with open(ARQUIVO_CSV, newline="", encoding="utf-8") as arquivo:
+            leitor = csv.DictReader(arquivo)
+
+            for linha in leitor:
+                # 🔐 regra de permissão
+                if session["role"] != "admin" and linha["barbeiro"] != session["usuario"]:
+                    continue
+
+                # 🕒 converte data do CSV
+                data_venda = datetime.strptime(linha["data"], "%d/%m/%Y %H:%M").date()
+
+                # 🔎 aplica filtro de data
+                if data_inicio:
+                    if data_venda < datetime.strptime(data_inicio, "%Y-%m-%d").date():
+                        continue
+
+                if data_fim:
+                    if data_venda > datetime.strptime(data_fim, "%Y-%m-%d").date():
+                        continue
+
+                vendas.append(linha)
 
     return render_template(
         "historico.html",
         vendas=vendas,
-        usuario=session.get("usuario"),
-        tipo=session.get("role")
+        usuario=session["usuario"],
+        tipo=session["role"],
+        data_inicio=data_inicio,
+        data_fim=data_fim
     )
 
 

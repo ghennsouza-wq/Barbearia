@@ -5,8 +5,8 @@
 <h1>Histórico de Vendas</h1>
 
 <p>
-  Usuário: <b>{{ session["usuario"] }}</b>
-  ({{ session["role"] }})
+  Usuário: <b>{{ session.get("usuario") }}</b>
+  ({{ session.get("role") }})
 </p>
 
 <a class="button" href="/registrar">Registrar Nova Venda</a>
@@ -50,4 +50,3 @@
 {% endif %}
 
 {% endblock %}
-

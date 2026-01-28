@@ -15,6 +15,7 @@ USUARIOS = {
 ARQUIVO_CSV = "vendas.csv"
 
 
+# ---------------- LOGIN ----------------
 @app.route("/", methods=["GET", "POST"])
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -23,7 +24,7 @@ def login():
         senha = request.form["senha"].strip()
 
         if usuario in USUARIOS and USUARIOS[usuario]["senha"] == senha:
-            session.clear()  # 🔥 LIMPA SESSÃO ANTIGA
+            session.clear()
             session["usuario"] = usuario
             session["role"] = USUARIOS[usuario]["role"]
             return redirect("/historico")
@@ -39,6 +40,7 @@ def logout():
     return redirect("/login")
 
 
+# ---------------- REGISTRAR ----------------
 @app.route("/registrar", methods=["GET", "POST"])
 def registrar():
     if "usuario" not in session:
@@ -52,29 +54,26 @@ def registrar():
             except:
                 return 0.0
 
-        # lê os valores
         cabelo = valor("cabelo")
         barba = valor("barba")
         sobrancelha = valor("sobrancelha")
         produto = valor("produto")
         desconto = valor("desconto")
 
-        # calcula total
         total = cabelo + barba + sobrancelha + produto - desconto
         if total < 0:
             total = 0
 
-        # barbeiro correto (admin escolhe, barbeiro normal usa session)
+        # barbeiro correto
         if session.get("role") == "admin":
-            barbeiro = request.form.get("barbeiro")
+            barbeiro = request.form.get("barbeiro", "").lower()
         else:
             barbeiro = session.get("usuario")
 
-        # monta linha para salvar
         dados = {
             "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
-            "barbeiro": barbeiro,
             "cliente": request.form.get("cliente", ""),
+            "barbeiro": barbeiro,
             "cabelo": f"{cabelo:.2f}",
             "barba": f"{barba:.2f}",
             "sobrancelha": f"{sobrancelha:.2f}",
@@ -85,15 +84,14 @@ def registrar():
 
         arquivo_existe = os.path.exists(ARQUIVO_CSV)
 
-        with open(ARQUIVO_CSV, "a", newline="", encoding="utf-8") as arquivo:
-            escritor = csv.DictWriter(arquivo, fieldnames=dados.keys())
+        with open(ARQUIVO_CSV, "a", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=dados.keys())
             if not arquivo_existe:
-                escritor.writeheader()
-            escritor.writerow(dados)
+                writer.writeheader()
+            writer.writerow(dados)
 
         return redirect("/historico")
 
-    # esse render precisa passar "tipo" para funcionar no template
     return render_template(
         "registrar.html",
         tipo=session.get("role"),
@@ -101,6 +99,7 @@ def registrar():
     )
 
 
+# ---------------- HISTÓRICO ----------------
 @app.route("/historico")
 def historico():
     if "usuario" not in session:
@@ -109,21 +108,21 @@ def historico():
     vendas = []
 
     if os.path.exists(ARQUIVO_CSV):
-        with open(ARQUIVO_CSV, newline="", encoding="utf-8") as arquivo:
-            leitor = csv.DictReader(arquivo)
-            for linha in leitor:
-                if session["role"] == "admin" or linha["barbeiro"] == session["usuario"]:
+        with open(ARQUIVO_CSV, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for linha in reader:
+                if session.get("role") == "admin" or linha["barbeiro"] == session.get("usuario"):
                     vendas.append(linha)
 
     return render_template(
         "historico.html",
         vendas=vendas,
-        usuario=session["usuario"],
-        tipo=session["role"]
+        usuario=session.get("usuario"),
+        tipo=session.get("role")
     )
 
 
-
+# ---------------- DOWNLOAD CSV ----------------
 @app.route("/download")
 def download():
     if "usuario" not in session:
@@ -135,13 +134,13 @@ def download():
         with open(ARQUIVO_CSV, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for linha in reader:
-                if session["role"] == "admin" or linha["barbeiro"] == session["usuario"]:
+                if session.get("role") == "admin" or linha["barbeiro"] == session.get("usuario"):
                     vendas.append(linha)
 
     if not vendas:
         return redirect("/historico")
 
-    caminho = f"vendas_{session['usuario']}.csv"
+    caminho = f"vendas_{session.get('usuario')}.csv"
 
     with open(caminho, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=vendas[0].keys())

@@ -168,11 +168,10 @@ def historico():
     role = session.get("role")
     usuario = session.get("usuario")
 
-    # Filtro por período (YYYY-MM-DD)
     inicio_str = request.args.get("inicio")
     fim_str = request.args.get("fim")
 
-    # ✅ Reset diário na tela: se não passar filtro, mostra só HOJE
+    # ✅ Reset diário: se não tiver filtro, mostra só hoje
     if not inicio_str and not fim_str:
         inicio = date.today()
         fim = date.today()
@@ -185,12 +184,12 @@ def historico():
     where = []
     params = {}
 
-    # Permissões
+    # Permissão: barbeiro vê só o dele
     if role != "admin":
         where.append("barbeiro = :barbeiro")
         params["barbeiro"] = usuario
 
-    # Período
+    # Filtro por data
     if inicio:
         where.append("data >= :inicio")
         params["inicio"] = inicio
@@ -204,7 +203,6 @@ def historico():
     inicio_mes = hoje.replace(day=1)
 
     with engine.begin() as conn:
-        # Vendas listadas
         rows = conn.execute(text(f"""
             SELECT data, hora, cliente, barbeiro,
                    cabelo, barba, sobrancelha,
@@ -215,49 +213,69 @@ def historico():
             ORDER BY data DESC, hora DESC
         """), params).mappings().all()
 
-        # Total do dia (compatível SQLite/Postgres)
+        # ✅ TOTAL DO DIA
         if role != "admin":
             total_dia = conn.execute(text("""
-                SELECT COALESCE(SUM(total), 0) AS s
+                SELECT COALESCE(SUM(total), 0)
                 FROM vendas
                 WHERE barbeiro = :barbeiro AND data = :hoje
             """), {"barbeiro": usuario, "hoje": hoje}).scalar() or 0
         else:
             total_dia = conn.execute(text("""
-                SELECT COALESCE(SUM(total), 0) AS s
+                SELECT COALESCE(SUM(total), 0)
                 FROM vendas
                 WHERE data = :hoje
             """), {"hoje": hoje}).scalar() or 0
 
-        # Total do mês (1º dia do mês até hoje) — compatível SQLite/Postgres
+        # ✅ TOTAL DO MÊS (sem EXTRACT → funciona no SQLite)
         if role != "admin":
             total_mes = conn.execute(text("""
-                SELECT COALESCE(SUM(total), 0) AS s
+                SELECT COALESCE(SUM(total), 0)
                 FROM vendas
-                WHERE barbeiro = :barbeiro AND data >= :inicio_mes AND data <= :hoje
+                WHERE barbeiro = :barbeiro
+                  AND data >= :inicio_mes AND data <= :hoje
             """), {"barbeiro": usuario, "inicio_mes": inicio_mes, "hoje": hoje}).scalar() or 0
         else:
             total_mes = conn.execute(text("""
-                SELECT COALESCE(SUM(total), 0) AS s
+                SELECT COALESCE(SUM(total), 0)
                 FROM vendas
                 WHERE data >= :inicio_mes AND data <= :hoje
             """), {"inicio_mes": inicio_mes, "hoje": hoje}).scalar() or 0
 
-    # Formatação para o template
+    # ✅ Funções seguras para formatar dados
+    def fmt_data(valor):
+        if not valor:
+            return ""
+        if isinstance(valor, str):
+            try:
+                return datetime.strptime(valor, "%Y-%m-%d").strftime("%d/%m/%Y")
+            except:
+                return valor
+        try:
+            return valor.strftime("%d/%m/%Y")
+        except:
+            return str(valor)
+
+    def num(v):
+        try:
+            return float(v or 0)
+        except:
+            return 0.0
+
     vendas = []
     for r in rows:
         vendas.append({
-            "data": r["data"].strftime("%d/%m/%Y") if r["data"] else "",
-            "hora": r["hora"] or "",
-            "cliente": r["cliente"] or "",
-            "barbeiro": r["barbeiro"] or "",
-            "cabelo": f"{float(r['cabelo']):.2f}",
-            "barba": f"{float(r['barba']):.2f}",
-            "sobrancelha": f"{float(r['sobrancelha']):.2f}",
-            "produto_nome": r["produto_nome"] or "",
-            "produto_valor": f"{float(r['produto_valor']):.2f}",
-            "desconto": f"{float(r['desconto']):.2f}",
-            "total": f"{float(r['total']):.2f}",
+            "data": fmt_data(r.get("data")),
+            "hora": r.get("hora") or "",
+            "cliente": r.get("cliente") or "",
+            "barbeiro": r.get("barbeiro") or "",
+            "cabelo": f"{num(r.get('cabelo')):.2f}",
+            "barba": f"{num(r.get('barba')):.2f}",
+            "sobrancelha": f"{num(r.get('sobrancelha')):.2f}",
+            "produto_nome": r.get("produto_nome") or "",
+            "produto_valor": f"{num(r.get('produto_valor')):.2f}",
+            "desconto": f"{num(r.get('desconto')):.2f}",
+            "total": f"{num(r.get('total')):.2f}",
         })
 
     return render_template(
@@ -270,6 +288,7 @@ def historico():
         inicio=inicio_str or "",
         fim=fim_str or "",
     )
+
 
 
 @app.route("/download")

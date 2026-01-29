@@ -1,47 +1,78 @@
-@app.route("/historico")
-def historico():
-    if "usuario" not in session:
-        return redirect("/login")
+{% extends "base.html" %}
 
-    data_inicio = request.args.get("data_inicio")
-    data_fim = request.args.get("data_fim")
+{% block conteudo %}
 
-    vendas = []
-    total_vendas = 0.0
+<h1>Histórico de Vendas</h1>
 
-    if os.path.exists(ARQUIVO_CSV):
-        with open(ARQUIVO_CSV, newline="", encoding="utf-8") as arquivo:
-            leitor = csv.DictReader(arquivo)
+<p>
+  Usuário: <b>{{ usuario }}</b> ({{ tipo }})
+</p>
 
-            for linha in leitor:
-                # filtro por usuário
-                if session["role"] != "admin" and linha["barbeiro"] != session["usuario"]:
-                    continue
+<!-- FILTRO POR DATA -->
+<form method="get" action="/historico">
+    <label>
+        Data inicial:
+        <input type="date" name="data_inicio" value="{{ data_inicio }}">
+    </label>
 
-                # filtro por data
-                data_venda = datetime.strptime(
-                    linha["data"] + " " + linha["hora"],
-                    "%d/%m/%Y %H:%M"
-                ).date()
+    <label>
+        Data final:
+        <input type="date" name="data_fim" value="{{ data_fim }}">
+    </label>
 
-                if data_inicio:
-                    if data_venda < datetime.strptime(data_inicio, "%Y-%m-%d").date():
-                        continue
+    <button type="submit">Filtrar</button>
+    <a href="/historico" class="button">Limpar</a>
+</form>
 
-                if data_fim:
-                    if data_venda > datetime.strptime(data_fim, "%Y-%m-%d").date():
-                        continue
+<br>
 
-                vendas.append(linha)
-                total_vendas += float(linha["total"])
+<!-- RESUMO -->
+<p>
+  <b>Total em vendas:</b> R$ {{ total_vendas }} <br>
+  <b>Quantidade de vendas:</b> {{ qtd_vendas }}
+</p>
 
-    return render_template(
-        "historico.html",
-        vendas=vendas,
-        usuario=session["usuario"],
-        tipo=session["role"],
-        total_vendas=f"{total_vendas:.2f}",
-        qtd_vendas=len(vendas),
-        data_inicio=data_inicio,
-        data_fim=data_fim
-    )
+<br>
+
+<a class="button" href="/registrar">Nova Venda</a>
+<a class="button" href="/download">Baixar CSV</a>
+<a class="button" href="/logout">Sair</a>
+
+<br><br>
+
+{% if vendas %}
+<table>
+    <tr>
+        <th>Data</th>
+        <th>Hora</th>
+        <th>Cliente</th>
+        <th>Barbeiro</th>
+        <th>Cabelo</th>
+        <th>Barba</th>
+        <th>Sobrancelha</th>
+        <th>Produto</th>
+        <th>Desconto</th>
+        <th>Total</th>
+    </tr>
+
+    {% for v in vendas %}
+    <tr>
+        <td>{{ v.data }}</td>
+        <td>{{ v.hora }}</td>
+        <td>{{ v.cliente }}</td>
+        <td>{{ v.barbeiro }}</td>
+        <td>R$ {{ v.cabelo }}</td>
+        <td>R$ {{ v.barba }}</td>
+        <td>R$ {{ v.sobrancelha }}</td>
+        <td>R$ {{ v.produto }}</td>
+        <td>R$ {{ v.desconto }}</td>
+        <td><b>R$ {{ v.total }}</b></td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>Nenhuma venda encontrada.</p>
+{% endif %}
+
+{% endblock %}
+

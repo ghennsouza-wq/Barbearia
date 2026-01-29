@@ -26,13 +26,14 @@
 
 <br>
 
-<!-- RESUMO -->
+<!-- RESUMO: TOTAL DO DIA / MÊS -->
 <p>
-  <b>Total em vendas:</b> R$ {{ total_vendas }} <br>
-  <b>Quantidade de vendas:</b> {{ qtd_vendas }}
+  <b>Total do dia:</b>
+  <span style="color:green; font-weight:bold;">R$ {{ total_dia }}</span>
+  <br>
+  <b>Total do mês:</b>
+  <span style="color:green; font-weight:bold;">R$ {{ total_mes }}</span>
 </p>
-
-<br>
 
 <a class="button" href="/registrar">Registrar Nova Venda</a>
 <a class="button" href="/download">Baixar CSV</a>
@@ -44,6 +45,7 @@
 <table>
     <tr>
         <th>Data</th>
+        <th>Hora</th>
         <th>Cliente</th>
         <th>Barbeiro</th>
         <th>Cabelo</th>
@@ -57,6 +59,7 @@
     {% for v in vendas %}
     <tr>
         <td>{{ v.data }}</td>
+        <td>{{ v.hora }}</td>
         <td>{{ v.cliente }}</td>
         <td>{{ v.barbeiro }}</td>
         <td>R$ {{ v.cabelo }}</td>
@@ -73,4 +76,3 @@
 {% endif %}
 
 {% endblock %}
-

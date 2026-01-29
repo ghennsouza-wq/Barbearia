@@ -8,6 +8,32 @@
   Usuário: <b>{{ usuario }}</b> ({{ tipo }})
 </p>
 
+<!-- FILTRO POR DATA -->
+<form method="get" action="/historico">
+    <label>
+        Data inicial:
+        <input type="date" name="data_inicio" value="{{ data_inicio }}">
+    </label>
+
+    <label>
+        Data final:
+        <input type="date" name="data_fim" value="{{ data_fim }}">
+    </label>
+
+    <button type="submit">Filtrar</button>
+    <a href="/historico" class="button">Limpar</a>
+</form>
+
+<br>
+
+<!-- RESUMO -->
+<p>
+  <b>Total em vendas:</b> R$ {{ total_vendas }} <br>
+  <b>Quantidade de vendas:</b> {{ qtd_vendas }}
+</p>
+
+<br>
+
 <a class="button" href="/registrar">Registrar Nova Venda</a>
 <a class="button" href="/download">Baixar CSV</a>
 <a class="button" href="/logout">Sair</a>

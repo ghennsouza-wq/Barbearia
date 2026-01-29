@@ -70,21 +70,17 @@ def registrar():
         else:
             barbeiro = session.get("usuario")
 
-       agora = datetime.now()
-
         dados = {
-            "data": agora.strftime("%d/%m/%Y"),
-            "hora": agora.strftime("%H:%M"),
-            "barbeiro": barbeiro,
+            "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
             "cliente": request.form.get("cliente", ""),
+            "barbeiro": barbeiro,
             "cabelo": f"{cabelo:.2f}",
             "barba": f"{barba:.2f}",
             "sobrancelha": f"{sobrancelha:.2f}",
             "produto": f"{produto:.2f}",
             "desconto": f"{desconto:.2f}",
             "total": f"{total:.2f}"
-            }
-
+        }
 
         arquivo_existe = os.path.exists(ARQUIVO_CSV)
 
@@ -109,27 +105,25 @@ def historico():
     if "usuario" not in session:
         return redirect("/login")
 
+    vendas = []
+
+    # 🔎 pega filtros da URL
     data_inicio = request.args.get("data_inicio")
     data_fim = request.args.get("data_fim")
-
-    vendas = []
-    total_vendas = 0.0
 
     if os.path.exists(ARQUIVO_CSV):
         with open(ARQUIVO_CSV, newline="", encoding="utf-8") as arquivo:
             leitor = csv.DictReader(arquivo)
 
             for linha in leitor:
-                # filtro por usuário
+                # 🔐 regra de permissão
                 if session["role"] != "admin" and linha["barbeiro"] != session["usuario"]:
                     continue
 
-                # filtro por data
-                data_venda = datetime.strptime(
-                    linha["data"] + " " + linha["hora"],
-                    "%d/%m/%Y %H:%M"
-                ).date()
+                # 🕒 converte data do CSV
+                data_venda = datetime.strptime(linha["data"], "%d/%m/%Y %H:%M").date()
 
+                # 🔎 aplica filtro de data
                 if data_inicio:
                     if data_venda < datetime.strptime(data_inicio, "%Y-%m-%d").date():
                         continue
@@ -139,18 +133,16 @@ def historico():
                         continue
 
                 vendas.append(linha)
-                total_vendas += float(linha["total"])
 
     return render_template(
         "historico.html",
         vendas=vendas,
         usuario=session["usuario"],
         tipo=session["role"],
-        total_vendas=f"{total_vendas:.2f}",
-        qtd_vendas=len(vendas),
         data_inicio=data_inicio,
         data_fim=data_fim
     )
+
 
 # ---------------- DOWNLOAD CSV ----------------
 @app.route("/download")
@@ -178,3 +170,4 @@ def download():
         writer.writerows(vendas)
 
     return send_file(caminho, as_attachment=True)
+

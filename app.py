@@ -168,28 +168,29 @@ def historico():
     role = session.get("role")
     usuario = session.get("usuario")
 
-    inicio_str = request.args.get("inicio")
-    fim_str = request.args.get("fim")
+    # 🔎 filtros vindos do historico.html
+    data_inicio_str = request.args.get("data_inicio")
+    data_fim_str = request.args.get("data_fim")
 
-    # ✅ Reset diário: se não tiver filtro, mostra só hoje
-    if not inicio_str and not fim_str:
+    # ✅ Reset diário (na tela): se não passar filtro, mostra só hoje
+    if not data_inicio_str and not data_fim_str:
         inicio = date.today()
         fim = date.today()
-        inicio_str = inicio.strftime("%Y-%m-%d")
-        fim_str = fim.strftime("%Y-%m-%d")
+        data_inicio_str = inicio.strftime("%Y-%m-%d")
+        data_fim_str = fim.strftime("%Y-%m-%d")
     else:
-        inicio = datetime.strptime(inicio_str, "%Y-%m-%d").date() if inicio_str else None
-        fim = datetime.strptime(fim_str, "%Y-%m-%d").date() if fim_str else None
+        inicio = datetime.strptime(data_inicio_str, "%Y-%m-%d").date() if data_inicio_str else None
+        fim = datetime.strptime(data_fim_str, "%Y-%m-%d").date() if data_fim_str else None
 
     where = []
     params = {}
 
-    # Permissão: barbeiro vê só o dele
+    # 👮 permissão: barbeiro vê só o dele
     if role != "admin":
         where.append("barbeiro = :barbeiro")
         params["barbeiro"] = usuario
 
-    # Filtro por data
+    # 📅 filtro por data
     if inicio:
         where.append("data >= :inicio")
         params["inicio"] = inicio
@@ -203,6 +204,7 @@ def historico():
     inicio_mes = hoje.replace(day=1)
 
     with engine.begin() as conn:
+        # Lista de vendas (para tabela)
         rows = conn.execute(text(f"""
             SELECT data, hora, cliente, barbeiro,
                    cabelo, barba, sobrancelha,
@@ -213,7 +215,7 @@ def historico():
             ORDER BY data DESC, hora DESC
         """), params).mappings().all()
 
-        # ✅ TOTAL DO DIA
+        # Total do dia (por permissão)
         if role != "admin":
             total_dia = conn.execute(text("""
                 SELECT COALESCE(SUM(total), 0)
@@ -227,7 +229,7 @@ def historico():
                 WHERE data = :hoje
             """), {"hoje": hoje}).scalar() or 0
 
-        # ✅ TOTAL DO MÊS (sem EXTRACT → funciona no SQLite)
+        # Total do mês (do dia 1 até hoje) — sem EXTRACT (SQLite ok)
         if role != "admin":
             total_mes = conn.execute(text("""
                 SELECT COALESCE(SUM(total), 0)
@@ -242,11 +244,12 @@ def historico():
                 WHERE data >= :inicio_mes AND data <= :hoje
             """), {"inicio_mes": inicio_mes, "hoje": hoje}).scalar() or 0
 
-    # ✅ Funções seguras para formatar dados
+    # ✅ formatadores robustos (data pode vir como string no SQLite)
     def fmt_data(valor):
         if not valor:
             return ""
         if isinstance(valor, str):
+            # SQLite pode retornar "YYYY-MM-DD"
             try:
                 return datetime.strptime(valor, "%Y-%m-%d").strftime("%d/%m/%Y")
             except:
@@ -262,6 +265,7 @@ def historico():
         except:
             return 0.0
 
+    # monta vendas no formato que o template usa: v.data, v.produto_valor, etc
     vendas = []
     for r in rows:
         vendas.append({
@@ -285,10 +289,9 @@ def historico():
         tipo=role,
         total_dia=f"{float(total_dia):.2f}",
         total_mes=f"{float(total_mes):.2f}",
-        inicio=inicio_str or "",
-        fim=fim_str or "",
+        data_inicio=data_inicio_str or "",
+        data_fim=data_fim_str or "",
     )
-
 
 
 @app.route("/download")

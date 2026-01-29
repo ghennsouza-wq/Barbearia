@@ -2,42 +2,27 @@
 
 {% block conteudo %}
 
-<h1>Histórico de Vendas</h1>
+<h1>📊 Histórico de Vendas</h1>
 
 <p>
-  Usuário: <b>{{ usuario }}</b> ({{ tipo }})
+  Usuário:
+  <b>{{ usuario }}</b>
+  <span style="
+        padding: 4px 8px;
+        border-radius: 6px;
+        background: {{ 'green' if tipo == 'admin' else '#555' }};
+        color: white;
+        font-size: 12px;
+        margin-left: 5px;">
+    {{ tipo }}
+  </span>
 </p>
 
-<a class="button" href="/registrar">Registrar Nova Venda</a>
-<a class="button" href="/logout">Sair</a>
-
-<br><br>
-
-<!-- 🔎 FILTRO POR DATA -->
-<form method="get">
-    <label>
-        Data inicial:
-        <input type="date" name="data_inicio" value="{{ data_inicio }}">
-    </label>
-
-    &nbsp;&nbsp;
-
-    <label>
-        Data final:
-        <input type="date" name="data_fim" value="{{ data_fim }}">
-    </label>
-
-    &nbsp;&nbsp;
-
-    <button type="submit">Filtrar</button>
-    <a href="/historico" class="button">Limpar</a>
-</form>
-
-<br>
-
-<a class="button" href="/download">Baixar CSV</a>
-
-<br><br>
+<div style="margin-bottom: 20px;">
+  <a class="button" href="/registrar">➕ Nova Venda</a>
+  <a class="button" href="/download">📥 Baixar CSV</a>
+  <a class="button" href="/logout" style="background:#dc3545;">🚪 Sair</a>
+</div>
 
 {% if vendas %}
 <table>
@@ -55,20 +40,32 @@
 
     {% for v in vendas %}
     <tr>
-        <td>{{ v["data"] }}</td>
-        <td>{{ v["cliente"] }}</td>
-        <td>{{ v["barbeiro"] }}</td>
-        <td>R$ {{ v["cabelo"] }}</td>
-        <td>R$ {{ v["barba"] }}</td>
-        <td>R$ {{ v["sobrancelha"] }}</td>
-        <td>R$ {{ v["produto"] }}</td>
-        <td>R$ {{ v["desconto"] }}</td>
-        <td><b>R$ {{ v["total"] }}</b></td>
+        <td>{{ v.data }}</td>
+        <td>{{ v.cliente }}</td>
+        <td><b>{{ v.barbeiro }}</b></td>
+        <td>R$ {{ v.cabelo }}</td>
+        <td>R$ {{ v.barba }}</td>
+        <td>R$ {{ v.sobrancelha }}</td>
+        <td>R$ {{ v.produto }}</td>
+        <td style="color:red;">- R$ {{ v.desconto }}</td>
+        <td style="
+            font-weight: bold;
+            background: #e9f7ef;
+            color: #1e7e34;">
+            R$ {{ v.total }}
+        </td>
     </tr>
     {% endfor %}
 </table>
+
 {% else %}
-<p>Nenhuma venda encontrada para o período selecionado.</p>
+<p style="
+    padding: 15px;
+    background: #fff3cd;
+    border-radius: 8px;
+    color: #856404;">
+⚠️ Nenhuma venda registrada até o momento.
+</p>
 {% endif %}
 
 {% endblock %}

@@ -107,42 +107,68 @@ def historico():
 
     vendas = []
 
-    # 🔎 pega filtros da URL
-    data_inicio = request.args.get("data_inicio")
-    data_fim = request.args.get("data_fim")
+    # Totais
+    total_dia = 0.0
+    total_mes = 0.0
+
+    hoje = datetime.now().date()
+    mes_atual = (hoje.year, hoje.month)
+
+    def parse_data(linha: dict):
+        # tenta várias chaves e formatos
+        valor = linha.get("data") or linha.get("Data") or ""
+        valor = valor.strip()
+
+        for fmt in ("%d/%m/%Y %H:%M", "%d/%m/%Y"):
+            try:
+                return datetime.strptime(valor, fmt)
+            except ValueError:
+                pass
+        return None  # não conseguiu ler
+
+    def get_total(linha: dict) -> float:
+        for k in ("total", "Valor Final", "Valor Total"):
+            if k in linha and (linha[k] is not None):
+                try:
+                    return float(str(linha[k]).replace(",", "."))
+                except ValueError:
+                    return 0.0
+        return 0.0
+
+    def get_barbeiro(linha: dict) -> str:
+        return (linha.get("barbeiro") or linha.get("Barbeiro") or "").strip()
 
     if os.path.exists(ARQUIVO_CSV):
-        with open(ARQUIVO_CSV, newline="", encoding="utf-8") as arquivo:
-            leitor = csv.DictReader(arquivo)
+        with open(ARQUIVO_CSV, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
 
-            for linha in leitor:
-                # 🔐 regra de permissão
-                if session["role"] != "admin" and linha["barbeiro"] != session["usuario"]:
+            for linha in reader:
+                barbeiro_linha = get_barbeiro(linha)
+
+                # Permissões: admin vê tudo, barbeiro só o dele
+                if session.get("role") != "admin" and barbeiro_linha != session.get("usuario"):
                     continue
 
-                # 🕒 converte data do CSV
-                data_venda = datetime.strptime(linha["data"], "%d/%m/%Y %H:%M").date()
-
-                # 🔎 aplica filtro de data
-                if data_inicio:
-                    if data_venda < datetime.strptime(data_inicio, "%Y-%m-%d").date():
-                        continue
-
-                if data_fim:
-                    if data_venda > datetime.strptime(data_fim, "%Y-%m-%d").date():
-                        continue
-
                 vendas.append(linha)
+
+                dt = parse_data(linha)
+                valor_total = get_total(linha)
+
+                if dt:
+                    data_venda = dt.date()
+                    if data_venda == hoje:
+                        total_dia += valor_total
+                    if (data_venda.year, data_venda.month) == mes_atual:
+                        total_mes += valor_total
 
     return render_template(
         "historico.html",
         vendas=vendas,
-        usuario=session["usuario"],
-        tipo=session["role"],
-        data_inicio=data_inicio,
-        data_fim=data_fim
+        usuario=session.get("usuario"),
+        tipo=session.get("role"),
+        total_dia=f"{total_dia:.2f}",
+        total_mes=f"{total_mes:.2f}",
     )
-
 
 # ---------------- DOWNLOAD CSV ----------------
 @app.route("/download")

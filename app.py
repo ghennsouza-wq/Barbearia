@@ -72,18 +72,18 @@ def registrar():
 
        agora = datetime.now()
 
-dados = {
-    "data": agora.strftime("%d/%m/%Y"),
-    "hora": agora.strftime("%H:%M"),
-    "barbeiro": barbeiro,
-    "cliente": request.form.get("cliente", ""),
-    "cabelo": f"{cabelo:.2f}",
-    "barba": f"{barba:.2f}",
-    "sobrancelha": f"{sobrancelha:.2f}",
-    "produto": f"{produto:.2f}",
-    "desconto": f"{desconto:.2f}",
-    "total": f"{total:.2f}"
-}
+        dados = {
+            "data": agora.strftime("%d/%m/%Y"),
+            "hora": agora.strftime("%H:%M"),
+            "barbeiro": barbeiro,
+            "cliente": request.form.get("cliente", ""),
+            "cabelo": f"{cabelo:.2f}",
+            "barba": f"{barba:.2f}",
+            "sobrancelha": f"{sobrancelha:.2f}",
+            "produto": f"{produto:.2f}",
+            "desconto": f"{desconto:.2f}",
+            "total": f"{total:.2f}"
+            }
 
 
         arquivo_existe = os.path.exists(ARQUIVO_CSV)

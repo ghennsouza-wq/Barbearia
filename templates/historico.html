@@ -36,7 +36,10 @@
 </p>
 
 <a class="button" href="/registrar">Registrar Nova Venda</a>
-<a class="button" href="/download">Baixar CSV</a>
+
+<!-- Baixar CSV com os mesmos filtros aplicados -->
+<a class="button" href="/download?data_inicio={{ data_inicio }}&data_fim={{ data_fim }}">Baixar CSV</a>
+
 <a class="button" href="/logout">Sair</a>
 
 <br><br>
@@ -65,14 +68,23 @@
         <td>R$ {{ v.cabelo }}</td>
         <td>R$ {{ v.barba }}</td>
         <td>R$ {{ v.sobrancelha }}</td>
-        <td>R$ {{ v.produto }}</td>
+
+        <!-- ✅ Produto correto: nome + valor -->
+        <td>
+            {% if v.produto_nome %}
+              {{ v.produto_nome }} (R$ {{ v.produto_valor }})
+            {% else %}
+              —
+            {% endif %}
+        </td>
+
         <td style="color:red; font-weight:bold;">- R$ {{ v.desconto }}</td>
         <td style="color:green; font-weight:bold;">R$ {{ v.total }}</td>
     </tr>
     {% endfor %}
 </table>
 {% else %}
-<p>Nenhuma venda registrada.</p>
+<p>Nenhuma venda encontrada.</p>
 {% endif %}
 
 {% endblock %}

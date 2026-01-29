@@ -111,6 +111,11 @@ def registrar():
         produto_nome = request.form.get("produto_nome", "").strip()
         produto_valor = to_float(request.form.get("produto_valor"))
 
+# ✅ REGRA DE SEGURANÇA:
+# Se não tiver produto selecionado, o valor do produto é sempre 0
+        if not produto_nome:
+            produto_valor = 0.0
+
         if session["role"] == "admin":
             barbeiro = request.form.get("barbeiro", session["usuario"]).strip().lower()
         else:

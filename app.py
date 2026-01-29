@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, session, send_file
 from datetime import datetime, date
+from datetime import timedelta
 import os
 import csv
 import tempfile
@@ -167,14 +168,16 @@ def historico():
     role = session.get("role")
     usuario = session.get("usuario")
 
-    # ✅ Reset diário NA TELA:
-    # por padrão mostra só HOJE
-    inicio_str = request.args.get("inicio")  # YYYY-MM-DD
-    fim_str = request.args.get("fim")        # YYYY-MM-DD
+    # Filtro por período (YYYY-MM-DD)
+    inicio_str = request.args.get("inicio")
+    fim_str = request.args.get("fim")
 
+    # ✅ Reset diário na tela: se não passar filtro, mostra só HOJE
     if not inicio_str and not fim_str:
         inicio = date.today()
         fim = date.today()
+        inicio_str = inicio.strftime("%Y-%m-%d")
+        fim_str = fim.strftime("%Y-%m-%d")
     else:
         inicio = datetime.strptime(inicio_str, "%Y-%m-%d").date() if inicio_str else None
         fim = datetime.strptime(fim_str, "%Y-%m-%d").date() if fim_str else None
@@ -182,10 +185,12 @@ def historico():
     where = []
     params = {}
 
+    # Permissões
     if role != "admin":
         where.append("barbeiro = :barbeiro")
         params["barbeiro"] = usuario
 
+    # Período
     if inicio:
         where.append("data >= :inicio")
         params["inicio"] = inicio
@@ -195,7 +200,11 @@ def historico():
 
     where_sql = " AND ".join(where) if where else "1=1"
 
+    hoje = date.today()
+    inicio_mes = hoje.replace(day=1)
+
     with engine.begin() as conn:
+        # Vendas listadas
         rows = conn.execute(text(f"""
             SELECT data, hora, cliente, barbeiro,
                    cabelo, barba, sobrancelha,
@@ -206,28 +215,42 @@ def historico():
             ORDER BY data DESC, hora DESC
         """), params).mappings().all()
 
-        total_dia = conn.execute(text(f"""
-            SELECT COALESCE(SUM(total), 0) AS s
-            FROM vendas
-            WHERE {('barbeiro = :barbeiro AND ' if role != 'admin' else '')} data = :hoje
-        """), {**({"barbeiro": usuario} if role != "admin" else {}), "hoje": date.today()}).scalar() or 0
+        # Total do dia (compatível SQLite/Postgres)
+        if role != "admin":
+            total_dia = conn.execute(text("""
+                SELECT COALESCE(SUM(total), 0) AS s
+                FROM vendas
+                WHERE barbeiro = :barbeiro AND data = :hoje
+            """), {"barbeiro": usuario, "hoje": hoje}).scalar() or 0
+        else:
+            total_dia = conn.execute(text("""
+                SELECT COALESCE(SUM(total), 0) AS s
+                FROM vendas
+                WHERE data = :hoje
+            """), {"hoje": hoje}).scalar() or 0
 
-        total_mes = conn.execute(text(f"""
-            SELECT COALESCE(SUM(total), 0) AS s
-            FROM vendas
-            WHERE {('barbeiro = :barbeiro AND ' if role != 'admin' else '')}
-                  EXTRACT(YEAR FROM data) = :yy AND EXTRACT(MONTH FROM data) = :mm
-        """), {**({"barbeiro": usuario} if role != "admin" else {}),
-               "yy": date.today().year, "mm": date.today().month}).scalar() or 0
+        # Total do mês (1º dia do mês até hoje) — compatível SQLite/Postgres
+        if role != "admin":
+            total_mes = conn.execute(text("""
+                SELECT COALESCE(SUM(total), 0) AS s
+                FROM vendas
+                WHERE barbeiro = :barbeiro AND data >= :inicio_mes AND data <= :hoje
+            """), {"barbeiro": usuario, "inicio_mes": inicio_mes, "hoje": hoje}).scalar() or 0
+        else:
+            total_mes = conn.execute(text("""
+                SELECT COALESCE(SUM(total), 0) AS s
+                FROM vendas
+                WHERE data >= :inicio_mes AND data <= :hoje
+            """), {"inicio_mes": inicio_mes, "hoje": hoje}).scalar() or 0
 
-    # formata pra exibir
+    # Formatação para o template
     vendas = []
     for r in rows:
         vendas.append({
-            "data": r["data"].strftime("%d/%m/%Y"),
-            "hora": r["hora"],
-            "cliente": r["cliente"],
-            "barbeiro": r["barbeiro"],
+            "data": r["data"].strftime("%d/%m/%Y") if r["data"] else "",
+            "hora": r["hora"] or "",
+            "cliente": r["cliente"] or "",
+            "barbeiro": r["barbeiro"] or "",
             "cabelo": f"{float(r['cabelo']):.2f}",
             "barba": f"{float(r['barba']):.2f}",
             "sobrancelha": f"{float(r['sobrancelha']):.2f}",

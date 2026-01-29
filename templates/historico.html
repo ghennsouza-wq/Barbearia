@@ -8,33 +8,7 @@
   Usuário: <b>{{ usuario }}</b> ({{ tipo }})
 </p>
 
-<!-- FILTRO POR DATA -->
-<form method="get" action="/historico">
-    <label>
-        Data inicial:
-        <input type="date" name="data_inicio" value="{{ data_inicio }}">
-    </label>
-
-    <label>
-        Data final:
-        <input type="date" name="data_fim" value="{{ data_fim }}">
-    </label>
-
-    <button type="submit">Filtrar</button>
-    <a href="/historico" class="button">Limpar</a>
-</form>
-
-<br>
-
-<!-- RESUMO -->
-<p>
-  <b>Total em vendas:</b> R$ {{ total_vendas }} <br>
-  <b>Quantidade de vendas:</b> {{ qtd_vendas }}
-</p>
-
-<br>
-
-<a class="button" href="/registrar">Nova Venda</a>
+<a class="button" href="/registrar">Registrar Nova Venda</a>
 <a class="button" href="/download">Baixar CSV</a>
 <a class="button" href="/logout">Sair</a>
 
@@ -44,7 +18,6 @@
 <table>
     <tr>
         <th>Data</th>
-        <th>Hora</th>
         <th>Cliente</th>
         <th>Barbeiro</th>
         <th>Cabelo</th>
@@ -58,20 +31,20 @@
     {% for v in vendas %}
     <tr>
         <td>{{ v.data }}</td>
-        <td>{{ v.hora }}</td>
         <td>{{ v.cliente }}</td>
         <td>{{ v.barbeiro }}</td>
         <td>R$ {{ v.cabelo }}</td>
         <td>R$ {{ v.barba }}</td>
         <td>R$ {{ v.sobrancelha }}</td>
         <td>R$ {{ v.produto }}</td>
-        <td>R$ {{ v.desconto }}</td>
-        <td><b>R$ {{ v.total }}</b></td>
+        <td style="color:red; font-weight:bold;">- R$ {{ v.desconto }}</td>
+        <td style="color:green; font-weight:bold;">R$ {{ v.total }}</td>
     </tr>
     {% endfor %}
 </table>
 {% else %}
-<p>Nenhuma venda encontrada.</p>
+<p>Nenhuma venda registrada.</p>
 {% endif %}
 
 {% endblock %}
+

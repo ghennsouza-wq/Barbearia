@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-
 {% block conteudo %}
 
 <h1>📊 Histórico de Vendas</h1>
@@ -18,6 +17,71 @@
   </span>
 </p>
 
+<!-- 🔎 FILTROS -->
+<form method="get" style="
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 20px 0;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+">
+  <div>
+    <label>Data inicial</label><br>
+    <input type="date" name="inicio" value="{{ request.args.get('inicio','') }}">
+  </div>
+
+  <div>
+    <label>Data final</label><br>
+    <input type="date" name="fim" value="{{ request.args.get('fim','') }}">
+  </div>
+
+  <div>
+    <label>Barbeiro</label><br>
+    <input type="text" name="barbeiro" placeholder="Nome"
+           value="{{ request.args.get('barbeiro','') }}">
+  </div>
+
+  <div style="align-self:flex-end;">
+    <button class="button">🔍 Filtrar</button>
+    <a class="button" href="/historico">🧹 Limpar</a>
+  </div>
+</form>
+
+<!-- 📈 RELATÓRIOS -->
+<div style="
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 25px;
+">
+  <div style="
+      background: #e9f7ef;
+      padding: 15px 20px;
+      border-radius: 10px;
+      min-width: 200px;
+  ">
+    <h3>Total em vendas</h3>
+    <p style="font-size:22px;font-weight:bold;color:#1e7e34;">
+      R$ {{ total_geral }}
+    </p>
+  </div>
+
+  <div style="
+      background: #eef2ff;
+      padding: 15px 20px;
+      border-radius: 10px;
+      min-width: 200px;
+  ">
+    <h3>Qtd. de vendas</h3>
+    <p style="font-size:22px;font-weight:bold;">
+      {{ quantidade }}
+    </p>
+  </div>
+</div>
+
+<!-- BOTÕES -->
 <div style="margin-bottom: 20px;">
   <a class="button" href="/registrar">➕ Nova Venda</a>
   <a class="button" href="/download">📥 Baixar CSV</a>
@@ -26,45 +90,44 @@
 
 {% if vendas %}
 <table>
-    <tr>
-        <th>Data</th>
-        <th>Cliente</th>
-        <th>Barbeiro</th>
-        <th>Cabelo</th>
-        <th>Barba</th>
-        <th>Sobrancelha</th>
-        <th>Produto</th>
-        <th>Desconto</th>
-        <th>Total</th>
-    </tr>
+  <tr>
+    <th>Data</th>
+    <th>Cliente</th>
+    <th>Barbeiro</th>
+    <th>Cabelo</th>
+    <th>Barba</th>
+    <th>Sobrancelha</th>
+    <th>Produto</th>
+    <th>Desconto</th>
+    <th>Total</th>
+  </tr>
 
-    {% for v in vendas %}
-    <tr>
-        <td>{{ v.data }}</td>
-        <td>{{ v.cliente }}</td>
-        <td><b>{{ v.barbeiro }}</b></td>
-        <td>R$ {{ v.cabelo }}</td>
-        <td>R$ {{ v.barba }}</td>
-        <td>R$ {{ v.sobrancelha }}</td>
-        <td>R$ {{ v.produto }}</td>
-        <td style="color:red;">- R$ {{ v.desconto }}</td>
-        <td style="
-            font-weight: bold;
-            background: #e9f7ef;
-            color: #1e7e34;">
-            R$ {{ v.total }}
-        </td>
-    </tr>
-    {% endfor %}
+  {% for v in vendas %}
+  <tr>
+    <td>{{ v.data }}</td>
+    <td>{{ v.cliente }}</td>
+    <td><b>{{ v.barbeiro }}</b></td>
+    <td>R$ {{ v.cabelo }}</td>
+    <td>R$ {{ v.barba }}</td>
+    <td>R$ {{ v.sobrancelha }}</td>
+    <td>R$ {{ v.produto }}</td>
+    <td style="color:red;">- R$ {{ v.desconto }}</td>
+    <td style="
+        font-weight: bold;
+        background: #e9f7ef;
+        color: #1e7e34;">
+        R$ {{ v.total }}
+    </td>
+  </tr>
+  {% endfor %}
 </table>
-
 {% else %}
 <p style="
     padding: 15px;
     background: #fff3cd;
     border-radius: 8px;
     color: #856404;">
-⚠️ Nenhuma venda registrada até o momento.
+⚠️ Nenhuma venda encontrada com os filtros aplicados.
 </p>
 {% endif %}
 

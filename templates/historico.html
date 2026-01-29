@@ -2,6 +2,31 @@
 
 {% block conteudo %}
 
+<style>
+  .desconto {
+    color: #c0392b;
+    font-weight: bold;
+  }
+
+  .total {
+    color: #27ae60;
+    font-weight: bold;
+  }
+
+  .resumo {
+    margin: 15px 0;
+  }
+
+  .resumo p {
+    font-size: 16px;
+    margin: 5px 0;
+  }
+
+  .botoes a {
+    margin-right: 10px;
+  }
+</style>
+
 <h1>Histórico de Vendas</h1>
 
 <p>
@@ -9,70 +34,64 @@
 </p>
 
 <!-- FILTRO POR DATA -->
-<form method="get" action="/historico">
-    <label>
-        Data inicial:
-        <input type="date" name="data_inicio" value="{{ data_inicio }}">
-    </label>
+<form method="get">
+  Data inicial:
+  <input type="date" name="data_inicio" value="{{ data_inicio or '' }}">
 
-    <label>
-        Data final:
-        <input type="date" name="data_fim" value="{{ data_fim }}">
-    </label>
+  Data final:
+  <input type="date" name="data_fim" value="{{ data_fim or '' }}">
 
-    <button type="submit">Filtrar</button>
-    <a href="/historico" class="button">Limpar</a>
+  <button type="submit">Filtrar</button>
+  <a href="/historico" class="button">Limpar</a>
 </form>
 
-<br>
-
 <!-- RESUMO -->
-<p>
-  <b>Total em vendas:</b> R$ {{ total_vendas }} <br>
-  <b>Quantidade de vendas:</b> {{ qtd_vendas }}
-</p>
+<div class="resumo">
+  <p><b>Total em vendas:</b> R$ {{ total_vendas }}</p>
+  <p><b>Quantidade de vendas:</b> {{ qtd_vendas }}</p>
+</div>
+
+<!-- BOTÕES -->
+<div class="botoes">
+  <a href="/registrar" class="button">Nova Venda</a>
+  <a href="/download" class="button">Baixar CSV</a>
+  <a href="/logout" class="button">Sair</a>
+</div>
 
 <br>
-
-<a class="button" href="/registrar">Nova Venda</a>
-<a class="button" href="/download">Baixar CSV</a>
-<a class="button" href="/logout">Sair</a>
-
-<br><br>
 
 {% if vendas %}
 <table>
-    <tr>
-        <th>Data</th>
-        <th>Hora</th>
-        <th>Cliente</th>
-        <th>Barbeiro</th>
-        <th>Cabelo</th>
-        <th>Barba</th>
-        <th>Sobrancelha</th>
-        <th>Produto</th>
-        <th>Desconto</th>
-        <th>Total</th>
-    </tr>
+  <tr>
+    <th>Data</th>
+    <th>Hora</th>
+    <th>Cliente</th>
+    <th>Barbeiro</th>
+    <th>Cabelo</th>
+    <th>Barba</th>
+    <th>Sobrancelha</th>
+    <th>Produto</th>
+    <th>Desconto</th>
+    <th>Total</th>
+  </tr>
 
-    {% for v in vendas %}
-    <tr>
-        <td>{{ v.data }}</td>
-        <td>{{ v.hora }}</td>
-        <td>{{ v.cliente }}</td>
-        <td>{{ v.barbeiro }}</td>
-        <td>R$ {{ v.cabelo }}</td>
-        <td>R$ {{ v.barba }}</td>
-        <td>R$ {{ v.sobrancelha }}</td>
-        <td>R$ {{ v.produto }}</td>
-        <td>R$ {{ v.desconto }}</td>
-        <td><b>R$ {{ v.total }}</b></td>
-    </tr>
-    {% endfor %}
+  {% for v in vendas %}
+  <tr>
+    <td>{{ v.data }}</td>
+    <td>{{ v.hora }}</td>
+    <td>{{ v.cliente }}</td>
+    <td>{{ v.barbeiro }}</td>
+    <td>R$ {{ v.cabelo }}</td>
+    <td>R$ {{ v.barba }}</td>
+    <td>R$ {{ v.sobrancelha }}</td>
+    <td>R$ {{ v.produto }}</td>
+    <td class="desconto">R$ {{ v.desconto }}</td>
+    <td class="total">R$ {{ v.total }}</td>
+  </tr>
+  {% endfor %}
 </table>
 {% else %}
-<p>Nenhuma venda encontrada.</p>
+<p><b>Nenhuma venda encontrada.</b></p>
 {% endif %}
 
 {% endblock %}
-

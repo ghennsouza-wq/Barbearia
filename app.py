@@ -164,12 +164,19 @@ def registrar():
         barba = to_float(request.form.get("barba"))
         sobrancelha = to_float(request.form.get("sobrancelha"))
 
-        produto_nome = (request.form.get("produto_nome") or "").strip()
+        # Produto
+        produto_nome_raw = (request.form.get("produto_nome") or "").strip()
+        produto_nome_norm = produto_nome_raw.lower()
+
         produto_valor = to_float(request.form.get("produto_valor"))
 
-        # ✅ REGRA DE SEGURANÇA: se "nenhum", valor vira 0
-        if not produto_nome:
+        # ✅ REGRA DE SEGURANÇA:
+        # - se vier vazio OU "nenhum", zera o valor e salva produto_nome como NULL
+        if produto_nome_norm in ("", "nenhum", "null", "none"):
+            produto_nome = None
             produto_valor = 0.0
+        else:
+            produto_nome = produto_nome_raw  # mantém o texto original (ex: "Gel de cabelo")
 
         desconto = to_float(request.form.get("desconto"))
 
@@ -185,16 +192,19 @@ def registrar():
 
         cliente = (request.form.get("cliente") or "").strip()
 
-        hoje = datetime.now().date()         # date()
-        hora = datetime.now().strftime("%H:%M")
+        agora = datetime.now()
+        hoje = agora.date()
+        hora = agora.strftime("%H:%M")
 
         with engine.begin() as conn:
             conn.execute(
                 text("""
                     INSERT INTO vendas
-                    (data, hora, cliente, barbeiro, cabelo, barba, sobrancelha, produto_nome, produto_valor, desconto, total)
+                    (data, hora, cliente, barbeiro, cabelo, barba, sobrancelha,
+                     produto_nome, produto_valor, desconto, total)
                     VALUES
-                    (:data, :hora, :cliente, :barbeiro, :cabelo, :barba, :sobrancelha, :produto_nome, :produto_valor, :desconto, :total)
+                    (:data, :hora, :cliente, :barbeiro, :cabelo, :barba, :sobrancelha,
+                     :produto_nome, :produto_valor, :desconto, :total)
                 """),
                 {
                     "data": hoje,
@@ -204,8 +214,8 @@ def registrar():
                     "cabelo": round(cabelo, 2),
                     "barba": round(barba, 2),
                     "sobrancelha": round(sobrancelha, 2),
-                    "produto_nome": produto_nome or None,
-                    "produto_valor": round(produto_valor, 2),
+                    "produto_nome": produto_nome,              # NULL quando não houver produto
+                    "produto_valor": round(produto_valor, 2),  # 0.00 quando não houver produto
                     "desconto": round(desconto, 2),
                     "total": round(total, 2),
                 }
@@ -218,6 +228,7 @@ def registrar():
         tipo=session.get("role"),
         usuario=session.get("usuario"),
     )
+
 
 
 @app.route("/historico")

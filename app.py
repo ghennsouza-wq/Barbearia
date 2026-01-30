@@ -21,32 +21,34 @@ USUARIOS = {
 # =========================
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
+# Render/Neon normalmente fornece "postgresql://..."
+# Para usar psycopg v3 no SQLAlchemy: "postgresql+psycopg://..."
+if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+
 if DATABASE_URL:
-    # Neon/Postgres
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 else:
     # Local (desenvolvimento)
     engine = create_engine("sqlite:///barbearia.db", pool_pre_ping=True)
-    
-from sqlalchemy import text
 
+# Logs úteis (aparecem no Render logs)
 print(">>> DATABASE_URL existe?", bool(os.environ.get("DATABASE_URL")))
 print(">>> DATABASE_URL inicio:", (os.environ.get("DATABASE_URL") or "")[:60])
-
 try:
     with engine.connect() as conn:
-        dbname = conn.execute(text("select current_database()")).scalar()
-        print(">>> Conectado no banco:", dbname)
+        # Postgres tem current_database(); SQLite não
+        try:
+            dbname = conn.execute(text("select current_database()")).scalar()
+            print(">>> Conectado no Postgres:", dbname)
+        except Exception:
+            print(">>> Conectado no SQLite (local)")
 except Exception as e:
     print(">>> ERRO conectando no banco:", repr(e))
 
 
 def init_db():
-    """Cria tabela se não existir (funciona em Postgres e SQLite)."""
-    # Para SQLite: id INTEGER PRIMARY KEY AUTOINCREMENT
-    # Para Postgres: id SERIAL PRIMARY KEY
-    # Vamos usar uma criação compatível com ambos via duas tentativas simples.
-
+    """Cria tabela se não existir (Postgres/Neon e SQLite)."""
     ddl_postgres = """
     CREATE TABLE IF NOT EXISTS vendas (
         id SERIAL PRIMARY KEY,
@@ -113,12 +115,12 @@ def parse_date_yyyy_mm_dd(s: str):
 
 def row_to_dict(r):
     """Converte RowMapping em dict (com strings prontas pro template)."""
-    # r["data"] pode vir como date (Postgres) ou str (SQLite)
     d = r.get("data")
+
+    # Postgres: d é date; SQLite: pode ser str
     if isinstance(d, date):
         data_str = d.strftime("%d/%m/%Y")
     else:
-        # SQLite: pode estar "YYYY-MM-DD" ou algo já em texto
         try:
             data_str = datetime.strptime(str(d), "%Y-%m-%d").strftime("%d/%m/%Y")
         except Exception:
@@ -146,8 +148,8 @@ def row_to_dict(r):
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        usuario = request.form.get("usuario", "").strip().lower()
-        senha = request.form.get("senha", "").strip()
+        usuario = (request.form.get("usuario") or "").strip().lower()
+        senha = (request.form.get("senha") or "").strip()
 
         if usuario in USUARIOS and USUARIOS[usuario]["senha"] == senha:
             session.clear()
@@ -179,16 +181,14 @@ def registrar():
         # Produto
         produto_nome_raw = (request.form.get("produto_nome") or "").strip()
         produto_nome_norm = produto_nome_raw.lower()
-
         produto_valor = to_float(request.form.get("produto_valor"))
 
-        # ✅ REGRA DE SEGURANÇA:
-        # - se vier vazio OU "nenhum", zera o valor e salva produto_nome como NULL
+        # ✅ REGRA: se vier vazio/nenhum -> zera valor e salva NULL
         if produto_nome_norm in ("", "nenhum", "null", "none"):
             produto_nome = None
             produto_valor = 0.0
         else:
-            produto_nome = produto_nome_raw  # mantém o texto original (ex: "Gel de cabelo")
+            produto_nome = produto_nome_raw
 
         desconto = to_float(request.form.get("desconto"))
 
@@ -226,15 +226,14 @@ def registrar():
                     "cabelo": round(cabelo, 2),
                     "barba": round(barba, 2),
                     "sobrancelha": round(sobrancelha, 2),
-                    "produto_nome": produto_nome,              # NULL quando não houver produto
-                    "produto_valor": round(produto_valor, 2),  # 0.00 quando não houver produto
+                    "produto_nome": produto_nome,
+                    "produto_valor": round(produto_valor, 2),
                     "desconto": round(desconto, 2),
                     "total": round(total, 2),
                 }
             )
-            print(">>> INSERT OK para barbeiro:", barbeiro, "cliente:", cliente, "total:", total)
 
-
+        print(">>> INSERT OK:", barbeiro, cliente, total)
         return redirect("/historico")
 
     return render_template(
@@ -242,7 +241,6 @@ def registrar():
         tipo=session.get("role"),
         usuario=session.get("usuario"),
     )
-
 
 
 @app.route("/historico")
@@ -259,11 +257,9 @@ def historico():
     data_inicio = parse_date_yyyy_mm_dd(data_inicio_str)
     data_fim = parse_date_yyyy_mm_dd(data_fim_str)
 
-    # base query
     where = []
     params = {}
 
-    # barbeiro vê só o dele; admin vê todos
     if role != "admin":
         where.append("barbeiro = :barbeiro")
         params["barbeiro"] = usuario
@@ -278,7 +274,6 @@ def historico():
 
     where_sql = (" WHERE " + " AND ".join(where)) if where else ""
 
-    # lista de vendas
     with engine.begin() as conn:
         rows = conn.execute(
             text(f"""
@@ -293,19 +288,15 @@ def historico():
 
     vendas = [row_to_dict(r) for r in rows]
 
-    # totais: por padrão, total do dia e do mês "hoje", respeitando regra de barbeiro
+    # totais do dia e do mês (hoje)
     hoje = datetime.now().date()
     mes_inicio = hoje.replace(day=1)
-
-    params_dia = {}
-    params_mes = {}
 
     where_dia = ["data = :hoje"]
     where_mes = ["data >= :mes_inicio", "data <= :hoje"]
 
-    params_dia["hoje"] = hoje
-    params_mes["mes_inicio"] = mes_inicio
-    params_mes["hoje"] = hoje
+    params_dia = {"hoje": hoje}
+    params_mes = {"mes_inicio": mes_inicio, "hoje": hoje}
 
     if role != "admin":
         where_dia.append("barbeiro = :barbeiro")
@@ -315,12 +306,12 @@ def historico():
 
     with engine.begin() as conn:
         total_dia = conn.execute(
-            text(f"SELECT COALESCE(SUM(total), 0) AS s FROM vendas WHERE {' AND '.join(where_dia)}"),
+            text(f"SELECT COALESCE(SUM(total), 0) FROM vendas WHERE {' AND '.join(where_dia)}"),
             params_dia
         ).scalar() or 0
 
         total_mes = conn.execute(
-            text(f"SELECT COALESCE(SUM(total), 0) AS s FROM vendas WHERE {' AND '.join(where_mes)}"),
+            text(f"SELECT COALESCE(SUM(total), 0) FROM vendas WHERE {' AND '.join(where_mes)}"),
             params_mes
         ).scalar() or 0
 
@@ -344,7 +335,6 @@ def download():
     role = session.get("role")
     usuario = session.get("usuario")
 
-    # mesmos filtros do histórico
     data_inicio_str = request.args.get("data_inicio", "") or ""
     data_fim_str = request.args.get("data_fim", "") or ""
     data_inicio = parse_date_yyyy_mm_dd(data_inicio_str)
@@ -382,7 +372,6 @@ def download():
     if not rows:
         return redirect("/historico")
 
-    # gera CSV temporário
     filename = f"vendas_{usuario}.csv"
     path = os.path.join("/tmp", filename)
 
@@ -396,7 +385,6 @@ def download():
         ])
 
         for r in rows:
-            # data format
             d = r.get("data")
             if isinstance(d, date):
                 data_str = d.strftime("%d/%m/%Y")

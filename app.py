@@ -27,6 +27,18 @@ if DATABASE_URL:
 else:
     # Local (desenvolvimento)
     engine = create_engine("sqlite:///barbearia.db", pool_pre_ping=True)
+    
+from sqlalchemy import text
+
+print(">>> DATABASE_URL existe?", bool(os.environ.get("DATABASE_URL")))
+print(">>> DATABASE_URL inicio:", (os.environ.get("DATABASE_URL") or "")[:60])
+
+try:
+    with engine.connect() as conn:
+        dbname = conn.execute(text("select current_database()")).scalar()
+        print(">>> Conectado no banco:", dbname)
+except Exception as e:
+    print(">>> ERRO conectando no banco:", repr(e))
 
 
 def init_db():
@@ -220,6 +232,8 @@ def registrar():
                     "total": round(total, 2),
                 }
             )
+            print(">>> INSERT OK para barbeiro:", barbeiro, "cliente:", cliente, "total:", total)
+
 
         return redirect("/historico")
 

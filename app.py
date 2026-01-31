@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session, send_file
+from flask import Flask, render_template, request, redirect, session, send_file, abort
 import csv
 import os
 from datetime import datetime, date
@@ -62,7 +62,9 @@ def init_db():
         produto_nome TEXT,
         produto_valor NUMERIC(10,2) NOT NULL DEFAULT 0,
         desconto NUMERIC(10,2) NOT NULL DEFAULT 0,
-        total NUMERIC(10,2) NOT NULL DEFAULT 0
+        total NUMERIC(10,2) NOT NULL DEFAULT 0,
+        deleted_at TIMESTAMP NULL,
+        deleted_by TEXT
     );
     """
 
@@ -79,7 +81,9 @@ def init_db():
         produto_nome TEXT,
         produto_valor REAL NOT NULL DEFAULT 0,
         desconto REAL NOT NULL DEFAULT 0,
-        total REAL NOT NULL DEFAULT 0
+        total REAL NOT NULL DEFAULT 0,
+        deleted_at TEXT,
+        deleted_by TEXT
     );
     """
 
@@ -126,7 +130,10 @@ def row_to_dict(r):
         except Exception:
             data_str = str(d or "")
 
+    produto_valor_num = float(r.get("produto_valor") or 0)
+
     return {
+        "id": r.get("id"),
         "data": data_str,
         "hora": str(r.get("hora") or ""),
         "cliente": str(r.get("cliente") or ""),
@@ -134,7 +141,10 @@ def row_to_dict(r):
         "cabelo": f"{float(r.get('cabelo') or 0):.2f}",
         "barba": f"{float(r.get('barba') or 0):.2f}",
         "sobrancelha": f"{float(r.get('sobrancelha') or 0):.2f}",
-        "produto": f"{float(r.get('produto_valor') or 0):.2f}",
+        # Mantém compatibilidade:
+        "produto": f"{produto_valor_num:.2f}",
+        # E adiciona a chave que o template usa:
+        "produto_valor": f"{produto_valor_num:.2f}",
         "desconto": f"{float(r.get('desconto') or 0):.2f}",
         "total": f"{float(r.get('total') or 0):.2f}",
         "produto_nome": str(r.get("produto_nome") or ""),
@@ -257,7 +267,8 @@ def historico():
     data_inicio = parse_date_yyyy_mm_dd(data_inicio_str)
     data_fim = parse_date_yyyy_mm_dd(data_fim_str)
 
-    where = []
+    # ✅ sempre ignora deletadas
+    where = ["deleted_at IS NULL"]
     params = {}
 
     if role != "admin":
@@ -277,7 +288,7 @@ def historico():
     with engine.begin() as conn:
         rows = conn.execute(
             text(f"""
-                SELECT data, hora, cliente, barbeiro,
+                SELECT id, data, hora, cliente, barbeiro,
                        cabelo, barba, sobrancelha, produto_nome, produto_valor, desconto, total
                 FROM vendas
                 {where_sql}
@@ -288,12 +299,12 @@ def historico():
 
     vendas = [row_to_dict(r) for r in rows]
 
-    # totais do dia e do mês (hoje)
+    # totais do dia e do mês (hoje) - ✅ ignorando deletadas
     hoje = datetime.now().date()
     mes_inicio = hoje.replace(day=1)
 
-    where_dia = ["data = :hoje"]
-    where_mes = ["data >= :mes_inicio", "data <= :hoje"]
+    where_dia = ["deleted_at IS NULL", "data = :hoje"]
+    where_mes = ["deleted_at IS NULL", "data >= :mes_inicio", "data <= :hoje"]
 
     params_dia = {"hoje": hoje}
     params_mes = {"mes_inicio": mes_inicio, "hoje": hoje}
@@ -340,7 +351,8 @@ def download():
     data_inicio = parse_date_yyyy_mm_dd(data_inicio_str)
     data_fim = parse_date_yyyy_mm_dd(data_fim_str)
 
-    where = []
+    # ✅ sempre ignora deletadas
+    where = ["deleted_at IS NULL"]
     params = {}
 
     if role != "admin":
@@ -360,7 +372,7 @@ def download():
     with engine.begin() as conn:
         rows = conn.execute(
             text(f"""
-                SELECT data, hora, cliente, barbeiro,
+                SELECT id, data, hora, cliente, barbeiro,
                        cabelo, barba, sobrancelha, produto_nome, produto_valor, desconto, total
                 FROM vendas
                 {where_sql}
@@ -409,3 +421,34 @@ def download():
             ])
 
     return send_file(path, as_attachment=True, download_name=filename)
+
+
+# =========================
+# EXCLUIR VENDA (ADMIN)
+# =========================
+@app.route("/venda/<int:venda_id>/excluir", methods=["POST"])
+def excluir_venda(venda_id: int):
+    if "usuario" not in session:
+        return redirect("/login")
+
+    if session.get("role") != "admin":
+        abort(403)
+
+    usuario = session.get("usuario")
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("""
+                UPDATE vendas
+                SET deleted_at = CURRENT_TIMESTAMP,
+                    deleted_by = :deleted_by
+                WHERE id = :id
+                  AND deleted_at IS NULL
+            """),
+            {"id": venda_id, "deleted_by": usuario}
+        )
+
+    # volta pro histórico preservando filtros atuais
+    data_inicio = request.args.get("data_inicio", "") or ""
+    data_fim = request.args.get("data_fim", "") or ""
+    return redirect(f"/historico?data_inicio={data_inicio}&data_fim={data_fim}")

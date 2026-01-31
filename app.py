@@ -383,6 +383,7 @@ def download():
     where_sql = (" WHERE " + " AND ".join(where)) if where else ""
 
     with engine.begin() as conn:
+        # 1) Linhas detalhadas
         rows = conn.execute(
             text(f"""
                 SELECT id, data, hora, cliente, barbeiro,
@@ -394,14 +395,48 @@ def download():
             params
         ).mappings().all()
 
-    if not rows:
-        return redirect("/historico")
+        if not rows:
+            return redirect("/historico")
+
+        # 2) Total geral do período filtrado
+        total_periodo = conn.execute(
+            text(f"SELECT COALESCE(SUM(total), 0) FROM vendas {where_sql}"),
+            params
+        ).scalar() or 0
+
+        # 3) Total por barbeiro no período filtrado
+        por_barbeiro = conn.execute(
+            text(f"""
+                SELECT barbeiro, COALESCE(SUM(total), 0) AS total
+                FROM vendas
+                {where_sql}
+                GROUP BY barbeiro
+                ORDER BY barbeiro ASC
+            """),
+            params
+        ).mappings().all()
+
+        # 4) Total por dia no período filtrado
+        por_dia = conn.execute(
+            text(f"""
+                SELECT data, COALESCE(SUM(total), 0) AS total
+                FROM vendas
+                {where_sql}
+                GROUP BY data
+                ORDER BY data ASC
+            """),
+            params
+        ).mappings().all()
 
     filename = f"vendas_{usuario}.csv"
     path = os.path.join("/tmp", filename)
 
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
+
+        # ======================
+        # DETALHADO (linhas)
+        # ======================
         writer.writerow([
             "Data", "Hora", "Cliente", "Barbeiro",
             "Cabelo", "Barba", "Sobrancelha",
@@ -433,8 +468,51 @@ def download():
                 f"{float(r.get('total') or 0):.2f}",
             ])
 
-    return send_file(path, as_attachment=True, download_name=filename)
+        # ======================
+        # RESUMO
+        # ======================
+        writer.writerow([])  # linha em branco
+        writer.writerow(["RESUMO DO PERÍODO (conforme filtros aplicados)"])
+        writer.writerow(["Data inicial", data_inicio_str or "(sem)"])
+        writer.writerow(["Data final", data_fim_str or "(sem)"])
+        writer.writerow(["Total do período", f"{float(total_periodo):.2f}"])
 
+        # ======================
+        # TOTAL POR BARBEIRO
+        # ======================
+        writer.writerow([])  # linha em branco
+        writer.writerow(["TOTAL POR BARBEIRO NO PERÍODO"])
+        writer.writerow(["Barbeiro", "Total"])
+
+        for b in por_barbeiro:
+            writer.writerow([
+                b.get("barbeiro") or "",
+                f"{float(b.get('total') or 0):.2f}"
+            ])
+
+        # ======================
+        # TOTAL POR DIA
+        # ======================
+        writer.writerow([])  # linha em branco
+        writer.writerow(["TOTAL POR DIA NO PERÍODO"])
+        writer.writerow(["Data", "Total"])
+
+        for drow in por_dia:
+            d = drow.get("data")
+            if isinstance(d, date):
+                data_str = d.strftime("%d/%m/%Y")
+            else:
+                try:
+                    data_str = datetime.strptime(str(d), "%Y-%m-%d").strftime("%d/%m/%Y")
+                except Exception:
+                    data_str = str(d or "")
+
+            writer.writerow([
+                data_str,
+                f"{float(drow.get('total') or 0):.2f}"
+            ])
+
+    return send_file(path, as_attachment=True, download_name=filename)
 
 # =========================
 # EXCLUIR VENDA (ADMIN)

@@ -57,6 +57,9 @@
         <th>Produto</th>
         <th>Desconto</th>
         <th>Total</th>
+        {% if tipo == "admin" %}
+          <th>Ações</th>
+        {% endif %}
     </tr>
 
     {% for v in vendas %}
@@ -80,6 +83,17 @@
 
         <td style="color:red; font-weight:bold;">- R$ {{ v.desconto }}</td>
         <td style="color:green; font-weight:bold;">R$ {{ v.total }}</td>
+
+        {% if tipo == "admin" %}
+        <td>
+          <form method="post"
+                action="/venda/{{ v.id }}/excluir?data_inicio={{ data_inicio }}&data_fim={{ data_fim }}"
+                onsubmit="return confirm('Tem certeza que deseja excluir esta venda?');"
+                style="display:inline;">
+            <button type="submit">Excluir</button>
+          </form>
+        </td>
+        {% endif %}
     </tr>
     {% endfor %}
 </table>

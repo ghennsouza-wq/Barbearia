@@ -36,6 +36,7 @@
 </p>
 
 <a class="button" href="/registrar">Registrar Nova Venda</a>
+<a class="button" href="/resumo_mes">Resumo do mês</a>
 
 <!-- Baixar CSV com os mesmos filtros aplicados -->
 <a class="button" href="/download?data_inicio={{ data_inicio }}&data_fim={{ data_fim }}">Baixar CSV</a>
@@ -55,6 +56,7 @@
         <th>Barba</th>
         <th>Sobrancelha</th>
         <th>Produto</th>
+        <th>Pagamento</th>
         <th>Desconto</th>
         <th>Total</th>
         {% if tipo == "admin" %}
@@ -80,6 +82,8 @@
               —
             {% endif %}
         </td>
+
+        <td>{{ v.pagamento }}</td>
 
         <td style="color:red; font-weight:bold;">- R$ {{ v.desconto }}</td>
         <td style="color:green; font-weight:bold;">R$ {{ v.total }}</td>

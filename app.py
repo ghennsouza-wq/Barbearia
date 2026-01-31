@@ -67,6 +67,7 @@ def init_db():
         produto_valor NUMERIC(10,2) NOT NULL DEFAULT 0,
         desconto NUMERIC(10,2) NOT NULL DEFAULT 0,
         total NUMERIC(10,2) NOT NULL DEFAULT 0,
+        pagamento TEXT NOT NULL DEFAULT 'nao_informado',
         deleted_at TIMESTAMP NULL,
         deleted_by TEXT
     );
@@ -86,6 +87,7 @@ def init_db():
         produto_valor REAL NOT NULL DEFAULT 0,
         desconto REAL NOT NULL DEFAULT 0,
         total REAL NOT NULL DEFAULT 0,
+        pagamento TEXT NOT NULL DEFAULT 'nao_informado',
         deleted_at TEXT,
         deleted_by TEXT
     );
@@ -152,6 +154,7 @@ def row_to_dict(r):
         "desconto": f"{float(r.get('desconto') or 0):.2f}",
         "total": f"{float(r.get('total') or 0):.2f}",
         "produto_nome": str(r.get("produto_nome") or ""),
+        "pagamento": str(r.get("pagamento") or "nao_informado"),
     }
 
 
@@ -218,6 +221,9 @@ def registrar():
 
         cliente = (request.form.get("cliente") or "").strip()
 
+        # ✅ Forma de pagamento (obrigatória no form)
+        pagamento = (request.form.get("pagamento") or "nao_informado").strip().lower()
+
         # ✅ Agora com timezone do Brasil
         agora = datetime.now(TZ_BR)
         hoje = agora.date()
@@ -228,10 +234,10 @@ def registrar():
                 text("""
                     INSERT INTO vendas
                     (data, hora, cliente, barbeiro, cabelo, barba, sobrancelha,
-                     produto_nome, produto_valor, desconto, total)
+                     produto_nome, produto_valor, desconto, total, pagamento)
                     VALUES
                     (:data, :hora, :cliente, :barbeiro, :cabelo, :barba, :sobrancelha,
-                     :produto_nome, :produto_valor, :desconto, :total)
+                     :produto_nome, :produto_valor, :desconto, :total, :pagamento)
                 """),
                 {
                     "data": hoje,
@@ -245,10 +251,11 @@ def registrar():
                     "produto_valor": round(produto_valor, 2),
                     "desconto": round(desconto, 2),
                     "total": round(total, 2),
+                    "pagamento": pagamento,
                 }
             )
 
-        print(">>> INSERT OK:", barbeiro, cliente, total)
+        print(">>> INSERT OK:", barbeiro, cliente, total, pagamento)
         return redirect("/historico")
 
     return render_template(
@@ -301,7 +308,8 @@ def historico():
         rows = conn.execute(
             text(f"""
                 SELECT id, data, hora, cliente, barbeiro,
-                       cabelo, barba, sobrancelha, produto_nome, produto_valor, desconto, total
+                       cabelo, barba, sobrancelha, produto_nome, produto_valor, desconto, total,
+                       pagamento
                 FROM vendas
                 {where_sql}
                 ORDER BY data DESC, hora DESC
@@ -312,7 +320,6 @@ def historico():
     vendas = [row_to_dict(r) for r in rows]
 
     # totais do dia e do mês (hoje) - ✅ ignorando deletadas
-    # ✅ Agora com timezone do Brasil
     hoje = datetime.now(TZ_BR).date()
     mes_inicio = hoje.replace(day=1)
 
@@ -387,7 +394,8 @@ def download():
         rows = conn.execute(
             text(f"""
                 SELECT id, data, hora, cliente, barbeiro,
-                       cabelo, barba, sobrancelha, produto_nome, produto_valor, desconto, total
+                       cabelo, barba, sobrancelha, produto_nome, produto_valor, desconto, total,
+                       pagamento
                 FROM vendas
                 {where_sql}
                 ORDER BY data DESC, hora DESC
@@ -428,6 +436,18 @@ def download():
             params
         ).mappings().all()
 
+        # 5) Total por forma de pagamento no período filtrado
+        por_pagamento = conn.execute(
+            text(f"""
+                SELECT pagamento, COALESCE(SUM(total), 0) AS total
+                FROM vendas
+                {where_sql}
+                GROUP BY pagamento
+                ORDER BY pagamento ASC
+            """),
+            params
+        ).mappings().all()
+
     filename = f"vendas_{usuario}.csv"
     path = os.path.join("/tmp", filename)
 
@@ -441,6 +461,7 @@ def download():
             "Data", "Hora", "Cliente", "Barbeiro",
             "Cabelo", "Barba", "Sobrancelha",
             "Produto", "Valor Produto",
+            "Pagamento",
             "Desconto", "Total"
         ])
 
@@ -464,6 +485,7 @@ def download():
                 f"{float(r.get('sobrancelha') or 0):.2f}",
                 r.get("produto_nome") or "",
                 f"{float(r.get('produto_valor') or 0):.2f}",
+                r.get("pagamento") or "nao_informado",
                 f"{float(r.get('desconto') or 0):.2f}",
                 f"{float(r.get('total') or 0):.2f}",
             ])
@@ -471,7 +493,7 @@ def download():
         # ======================
         # RESUMO
         # ======================
-        writer.writerow([])  # linha em branco
+        writer.writerow([])
         writer.writerow(["RESUMO DO PERÍODO (conforme filtros aplicados)"])
         writer.writerow(["Data inicial", data_inicio_str or "(sem)"])
         writer.writerow(["Data final", data_fim_str or "(sem)"])
@@ -480,7 +502,7 @@ def download():
         # ======================
         # TOTAL POR BARBEIRO
         # ======================
-        writer.writerow([])  # linha em branco
+        writer.writerow([])
         writer.writerow(["TOTAL POR BARBEIRO NO PERÍODO"])
         writer.writerow(["Barbeiro", "Total"])
 
@@ -493,7 +515,7 @@ def download():
         # ======================
         # TOTAL POR DIA
         # ======================
-        writer.writerow([])  # linha em branco
+        writer.writerow([])
         writer.writerow(["TOTAL POR DIA NO PERÍODO"])
         writer.writerow(["Data", "Total"])
 
@@ -512,7 +534,120 @@ def download():
                 f"{float(drow.get('total') or 0):.2f}"
             ])
 
+        # ======================
+        # TOTAL POR PAGAMENTO
+        # ======================
+        writer.writerow([])
+        writer.writerow(["TOTAL POR FORMA DE PAGAMENTO NO PERÍODO"])
+        writer.writerow(["Pagamento", "Total"])
+
+        for prow in por_pagamento:
+            writer.writerow([
+                (prow.get("pagamento") or "nao_informado"),
+                f"{float(prow.get('total') or 0):.2f}"
+            ])
+
     return send_file(path, as_attachment=True, download_name=filename)
+
+
+@app.route("/resumo_mes")
+def resumo_mes():
+    """Resumo do mês atual (Brasil), respeitando permissões e ignorando deletadas."""
+    if "usuario" not in session:
+        return redirect("/login")
+
+    role = session.get("role")
+    usuario = session.get("usuario")
+
+    hoje = datetime.now(TZ_BR).date()
+    mes_inicio = hoje.replace(day=1)
+
+    where = ["deleted_at IS NULL", "data >= :mes_inicio", "data <= :hoje"]
+    params = {"mes_inicio": mes_inicio, "hoje": hoje}
+
+    if role != "admin":
+        where.append("barbeiro = :barbeiro")
+        params["barbeiro"] = usuario
+
+    where_sql = " WHERE " + " AND ".join(where)
+
+    with engine.begin() as conn:
+        total_mes = conn.execute(
+            text(f"SELECT COALESCE(SUM(total), 0) FROM vendas {where_sql}"),
+            params
+        ).scalar() or 0
+
+        por_barbeiro = conn.execute(
+            text(f"""
+                SELECT barbeiro, COALESCE(SUM(total), 0) AS total
+                FROM vendas
+                {where_sql}
+                GROUP BY barbeiro
+                ORDER BY barbeiro ASC
+            """),
+            params
+        ).mappings().all()
+
+        por_pagamento = conn.execute(
+            text(f"""
+                SELECT pagamento, COALESCE(SUM(total), 0) AS total
+                FROM vendas
+                {where_sql}
+                GROUP BY pagamento
+                ORDER BY pagamento ASC
+            """),
+            params
+        ).mappings().all()
+
+        por_dia = conn.execute(
+            text(f"""
+                SELECT data, COALESCE(SUM(total), 0) AS total
+                FROM vendas
+                {where_sql}
+                GROUP BY data
+                ORDER BY data ASC
+            """),
+            params
+        ).mappings().all()
+
+    # Formata datas do por_dia
+    por_dia_fmt = []
+    for drow in por_dia:
+        d = drow.get("data")
+        if isinstance(d, date):
+            data_str = d.strftime("%d/%m/%Y")
+        else:
+            try:
+                data_str = datetime.strptime(str(d), "%Y-%m-%d").strftime("%d/%m/%Y")
+            except Exception:
+                data_str = str(d or "")
+        por_dia_fmt.append({
+            "data": data_str,
+            "total": f"{float(drow.get('total') or 0):.2f}"
+        })
+
+    por_barbeiro_fmt = [{
+        "barbeiro": (r.get("barbeiro") or ""),
+        "total": f"{float(r.get('total') or 0):.2f}"
+    } for r in por_barbeiro]
+
+    por_pagamento_fmt = [{
+        "pagamento": (r.get("pagamento") or "nao_informado"),
+        "total": f"{float(r.get('total') or 0):.2f}"
+    } for r in por_pagamento]
+
+    return render_template(
+        "resumo_mes.html",
+        usuario=usuario,
+        tipo=role,
+        mes_inicio=mes_inicio.strftime("%d/%m/%Y"),
+        hoje=hoje.strftime("%d/%m/%Y"),
+        total_mes=f"{float(total_mes):.2f}",
+        por_barbeiro=por_barbeiro_fmt,
+        por_pagamento=por_pagamento_fmt,
+        por_dia=por_dia_fmt,
+    )
+
 
 # =========================
 # EXCLUIR VENDA (ADMIN)

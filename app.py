@@ -2,10 +2,14 @@ from flask import Flask, render_template, request, redirect, session, send_file,
 import csv
 import os
 from datetime import datetime, date
+from zoneinfo import ZoneInfo
 from sqlalchemy import create_engine, text
 
 app = Flask(__name__)
 app.secret_key = "barbearia-secret"
+
+# Timezone correto do Brasil (Render geralmente roda em UTC)
+TZ_BR = ZoneInfo("America/Sao_Paulo")
 
 # =========================
 # USUÁRIOS (simples, no código)
@@ -214,7 +218,8 @@ def registrar():
 
         cliente = (request.form.get("cliente") or "").strip()
 
-        agora = datetime.now()
+        # ✅ Agora com timezone do Brasil
+        agora = datetime.now(TZ_BR)
         hoje = agora.date()
         hora = agora.strftime("%H:%M")
 
@@ -300,7 +305,8 @@ def historico():
     vendas = [row_to_dict(r) for r in rows]
 
     # totais do dia e do mês (hoje) - ✅ ignorando deletadas
-    hoje = datetime.now().date()
+    # ✅ Agora com timezone do Brasil
+    hoje = datetime.now(TZ_BR).date()
     mes_inicio = hoje.replace(day=1)
 
     where_dia = ["deleted_at IS NULL", "data = :hoje"]

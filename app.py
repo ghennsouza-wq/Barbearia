@@ -269,6 +269,13 @@ def historico():
     # filtros
     data_inicio_str = request.args.get("data_inicio", "") or ""
     data_fim_str = request.args.get("data_fim", "") or ""
+
+    # ✅ Se não veio filtro, usa o dia de hoje (Brasil) como padrão (para TODOS)
+    if not data_inicio_str and not data_fim_str:
+        hoje_padrao = datetime.now(TZ_BR).date().strftime("%Y-%m-%d")
+        data_inicio_str = hoje_padrao
+        data_fim_str = hoje_padrao
+
     data_inicio = parse_date_yyyy_mm_dd(data_inicio_str)
     data_fim = parse_date_yyyy_mm_dd(data_fim_str)
 

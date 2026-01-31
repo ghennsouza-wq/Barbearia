@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block conteudo %}
+
+<h1>Resumo do mês</h1>
+
+<p>
+  Usuário: <b>{{ usuario }}</b> ({{ tipo }})
+</p>
+
+<p>
+  Período: <b>{{ mes_inicio }}</b> até <b>{{ hoje }}</b>
+</p>
+
+<p>
+  <b>Total do mês (até hoje):</b>
+  <span style="color:green; font-weight:bold;">R$ {{ total_mes }}</span>
+</p>
+
+<a class="button" href="/historico">Voltar para o Histórico</a>
+
+<br><br>
+
+<h2>Total por barbeiro</h2>
+{% if por_barbeiro %}
+<table>
+  <tr>
+    <th>Barbeiro</th>
+    <th>Total</th>
+  </tr>
+  {% for r in por_barbeiro %}
+  <tr>
+    <td>{{ r.barbeiro }}</td>
+    <td style="color:green; font-weight:bold;">R$ {{ r.total }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>Sem dados no período.</p>
+{% endif %}
+
+<h2>Total por forma de pagamento</h2>
+{% if por_pagamento %}
+<table>
+  <tr>
+    <th>Pagamento</th>
+    <th>Total</th>
+  </tr>
+  {% for r in por_pagamento %}
+  <tr>
+    <td>{{ r.pagamento }}</td>
+    <td style="color:green; font-weight:bold;">R$ {{ r.total }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>Sem dados no período.</p>
+{% endif %}
+
+<h2>Total por dia</h2>
+{% if por_dia %}
+<table>
+  <tr>
+    <th>Data</th>
+    <th>Total</th>
+  </tr>
+  {% for r in por_dia %}
+  <tr>
+    <td>{{ r.data }}</td>
+    <td style="color:green; font-weight:bold;">R$ {{ r.total }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>Sem dados no período.</p>
+{% endif %}
+
+{% endblock %}

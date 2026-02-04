@@ -190,6 +190,8 @@ def registrar():
     if "usuario" not in session:
         return redirect("/login")
 
+    ADMIN_USER = "mairon"  # dono/admin que recebe lançamentos de produto dos barbeiros
+
     if request.method == "POST":
         cabelo = to_float(request.form.get("cabelo"))
         barba = to_float(request.form.get("barba"))
@@ -209,19 +211,16 @@ def registrar():
 
         desconto = to_float(request.form.get("desconto"))
 
-        total = cabelo + barba + sobrancelha + produto_valor - desconto
-        if total < 0:
-            total = 0.0
-
         # barbeiro correto
-        if session.get("role") == "admin":
+        role = session.get("role")
+        if role == "admin":
             barbeiro = (request.form.get("barbeiro") or session["usuario"]).strip().lower()
         else:
             barbeiro = session["usuario"]
 
         cliente = (request.form.get("cliente") or "").strip()
 
-        # ✅ Forma de pagamento (obrigatória no form)
+        # ✅ Forma de pagamento (já existe no seu sistema)
         pagamento = (request.form.get("pagamento") or "nao_informado").strip().lower()
 
         # ✅ Agora com timezone do Brasil
@@ -230,32 +229,119 @@ def registrar():
         hora = agora.strftime("%H:%M")
 
         with engine.begin() as conn:
-            conn.execute(
-                text("""
-                    INSERT INTO vendas
-                    (data, hora, cliente, barbeiro, cabelo, barba, sobrancelha,
-                     produto_nome, produto_valor, desconto, total, pagamento)
-                    VALUES
-                    (:data, :hora, :cliente, :barbeiro, :cabelo, :barba, :sobrancelha,
-                     :produto_nome, :produto_valor, :desconto, :total, :pagamento)
-                """),
-                {
-                    "data": hoje,
-                    "hora": hora,
-                    "cliente": cliente,
-                    "barbeiro": barbeiro,
-                    "cabelo": round(cabelo, 2),
-                    "barba": round(barba, 2),
-                    "sobrancelha": round(sobrancelha, 2),
-                    "produto_nome": produto_nome,
-                    "produto_valor": round(produto_valor, 2),
-                    "desconto": round(desconto, 2),
-                    "total": round(total, 2),
-                    "pagamento": pagamento,
-                }
-            )
+            # ======================================================
+            # 1) ADMIN registra NORMAL (serviço + produto - desconto)
+            # ======================================================
+            if role == "admin":
+                total = cabelo + barba + sobrancelha + produto_valor - desconto
+                if total < 0:
+                    total = 0.0
 
-        print(">>> INSERT OK:", barbeiro, cliente, total, pagamento)
+                conn.execute(
+                    text("""
+                        INSERT INTO vendas
+                        (data, hora, cliente, barbeiro, cabelo, barba, sobrancelha,
+                         produto_nome, produto_valor, desconto, total, pagamento)
+                        VALUES
+                        (:data, :hora, :cliente, :barbeiro, :cabelo, :barba, :sobrancelha,
+                         :produto_nome, :produto_valor, :desconto, :total, :pagamento)
+                    """),
+                    {
+                        "data": hoje,
+                        "hora": hora,
+                        "cliente": cliente,
+                        "barbeiro": barbeiro,
+                        "cabelo": round(cabelo, 2),
+                        "barba": round(barba, 2),
+                        "sobrancelha": round(sobrancelha, 2),
+                        "produto_nome": produto_nome,
+                        "produto_valor": round(produto_valor, 2),
+                        "desconto": round(desconto, 2),
+                        "total": round(total, 2),
+                        "pagamento": pagamento,
+                    }
+                )
+
+                print(">>> INSERT ADMIN OK:", barbeiro, cliente, total, pagamento)
+
+            # ======================================================
+            # 2) BARBEIRO registra:
+            #    - linha de serviço pro barbeiro (produto=0)
+            #    - linha de produto pro admin (serviço=0)
+            # ======================================================
+            else:
+                # Linha do barbeiro: produto NÃO conta
+                total_servico = cabelo + barba + sobrancelha - desconto
+                if total_servico < 0:
+                    total_servico = 0.0
+
+                conn.execute(
+                    text("""
+                        INSERT INTO vendas
+                        (data, hora, cliente, barbeiro, cabelo, barba, sobrancelha,
+                         produto_nome, produto_valor, desconto, total, pagamento)
+                        VALUES
+                        (:data, :hora, :cliente, :barbeiro, :cabelo, :barba, :sobrancelha,
+                         :produto_nome, :produto_valor, :desconto, :total, :pagamento)
+                    """),
+                    {
+                        "data": hoje,
+                        "hora": hora,
+                        "cliente": cliente,
+                        "barbeiro": barbeiro,
+                        "cabelo": round(cabelo, 2),
+                        "barba": round(barba, 2),
+                        "sobrancelha": round(sobrancelha, 2),
+
+                        # produto zerado para barbeiro
+                        "produto_nome": None,
+                        "produto_valor": 0.0,
+
+                        "desconto": round(desconto, 2),
+                        "total": round(total_servico, 2),
+                        "pagamento": pagamento,
+                    }
+                )
+
+                print(">>> INSERT SERVICO OK:", barbeiro, cliente, total_servico, pagamento)
+
+                # Linha do admin: só produto (se existir)
+                if produto_valor > 0 and produto_nome:
+                    conn.execute(
+                        text("""
+                            INSERT INTO vendas
+                            (data, hora, cliente, barbeiro, cabelo, barba, sobrancelha,
+                             produto_nome, produto_valor, desconto, total, pagamento)
+                            VALUES
+                            (:data, :hora, :cliente, :barbeiro, :cabelo, :barba, :sobrancelha,
+                             :produto_nome, :produto_valor, :desconto, :total, :pagamento)
+                        """),
+                        {
+                            "data": hoje,
+                            "hora": hora,
+                            "cliente": cliente,
+                            "barbeiro": ADMIN_USER,
+
+                            # serviço zerado para produto do dono
+                            "cabelo": 0.0,
+                            "barba": 0.0,
+                            "sobrancelha": 0.0,
+
+                            "produto_nome": produto_nome,
+                            "produto_valor": round(produto_valor, 2),
+
+                            # desconto NÃO duplica no produto
+                            "desconto": 0.0,
+
+                            "total": round(produto_valor, 2),
+
+                            # pagamento do produto (usa o mesmo)
+                            "pagamento": pagamento,
+                        }
+                    )
+
+                    print(">>> INSERT PRODUTO (ADMIN) OK:", ADMIN_USER, cliente, produto_nome, produto_valor, pagamento)
+
         return redirect("/historico")
 
     return render_template(
@@ -263,7 +349,6 @@ def registrar():
         tipo=session.get("role"),
         usuario=session.get("usuario"),
     )
-
 
 @app.route("/historico")
 def historico():

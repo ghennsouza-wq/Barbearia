@@ -190,48 +190,53 @@ def registrar():
     if "usuario" not in session:
         return redirect("/login")
 
-    ADMIN_USER = "mairon"  # dono/admin que recebe lançamentos de produto dos barbeiros
+    ADMIN_USER = "mairon"
 
     if request.method == "POST":
+        role = session.get("role")
+        usuario_logado = session.get("usuario")
+
+        # serviços
         cabelo = to_float(request.form.get("cabelo"))
         barba = to_float(request.form.get("barba"))
         sobrancelha = to_float(request.form.get("sobrancelha"))
+        desconto = to_float(request.form.get("desconto"))
 
-        # Produto
+        # produto
         produto_nome_raw = (request.form.get("produto_nome") or "").strip()
-        produto_nome_norm = produto_nome_raw.lower()
         produto_valor = to_float(request.form.get("produto_valor"))
+        produto_nome_norm = produto_nome_raw.lower()
 
-        # ✅ REGRA: se vier vazio/nenhum -> zera valor e salva NULL
         if produto_nome_norm in ("", "nenhum", "null", "none"):
             produto_nome = None
             produto_valor = 0.0
         else:
             produto_nome = produto_nome_raw
 
-        desconto = to_float(request.form.get("desconto"))
-
-        # barbeiro correto
-        role = session.get("role")
-        if role == "admin":
-            barbeiro = (request.form.get("barbeiro") or session["usuario"]).strip().lower()
-        else:
-            barbeiro = session["usuario"]
-
-        cliente = (request.form.get("cliente") or "").strip()
-
-        # ✅ Forma de pagamento (já existe no seu sistema)
+        # pagamento (obrigatório no seu form)
         pagamento = (request.form.get("pagamento") or "nao_informado").strip().lower()
 
-        # ✅ Agora com timezone do Brasil
+        # barbeiro correto
+        if role == "admin":
+            barbeiro = (request.form.get("barbeiro") or usuario_logado).strip().lower()
+        else:
+            barbeiro = usuario_logado
+
+        cliente = (request.form.get("cliente") or "").strip() or "sem nome"
+
         agora = datetime.now(TZ_BR)
         hoje = agora.date()
         hora = agora.strftime("%H:%M")
 
+        print(">>> /registrar POST")
+        print(">>> role=", role, "| usuario=", usuario_logado, "| barbeiro=", barbeiro)
+        print(">>> servicos=", cabelo, barba, sobrancelha, "| desc=", desconto)
+        print(">>> produto=", produto_nome, produto_valor, "| pag=", pagamento)
+
         with engine.begin() as conn:
-            # ======================================================
-            # 1) ADMIN registra NORMAL (serviço + produto - desconto)
-            # ======================================================
+            # ============================
+            # CASO ADMIN: registra NORMAL
+            # ============================
             if role == "admin":
                 total = cabelo + barba + sobrancelha + produto_valor - desconto
                 if total < 0:
@@ -262,15 +267,13 @@ def registrar():
                     }
                 )
 
-                print(">>> INSERT ADMIN OK:", barbeiro, cliente, total, pagamento)
+                print(">>> INSERT ADMIN OK total=", total)
 
-            # ======================================================
-            # 2) BARBEIRO registra:
-            #    - linha de serviço pro barbeiro (produto=0)
-            #    - linha de produto pro admin (serviço=0)
-            # ======================================================
+            # ==========================================
+            # CASO BARBEIRO: serviço (produto=0) + produto pro admin
+            # ==========================================
             else:
-                # Linha do barbeiro: produto NÃO conta
+                # 1) serviço do barbeiro (produto NÃO conta)
                 total_servico = cabelo + barba + sobrancelha - desconto
                 if total_servico < 0:
                     total_servico = 0.0
@@ -293,7 +296,7 @@ def registrar():
                         "barba": round(barba, 2),
                         "sobrancelha": round(sobrancelha, 2),
 
-                        # produto zerado para barbeiro
+                        # barbeiro não recebe produto
                         "produto_nome": None,
                         "produto_valor": 0.0,
 
@@ -303,10 +306,10 @@ def registrar():
                     }
                 )
 
-                print(">>> INSERT SERVICO OK:", barbeiro, cliente, total_servico, pagamento)
+                print(">>> INSERT SERVICO OK total_servico=", total_servico)
 
-                # Linha do admin: só produto (se existir)
-                if produto_valor > 0 and produto_nome:
+                # 2) produto pro admin (somente se houver)
+                if produto_nome and produto_valor > 0:
                     conn.execute(
                         text("""
                             INSERT INTO vendas
@@ -322,7 +325,6 @@ def registrar():
                             "cliente": cliente,
                             "barbeiro": ADMIN_USER,
 
-                            # serviço zerado para produto do dono
                             "cabelo": 0.0,
                             "barba": 0.0,
                             "sobrancelha": 0.0,
@@ -330,17 +332,15 @@ def registrar():
                             "produto_nome": produto_nome,
                             "produto_valor": round(produto_valor, 2),
 
-                            # desconto NÃO duplica no produto
                             "desconto": 0.0,
-
                             "total": round(produto_valor, 2),
-
-                            # pagamento do produto (usa o mesmo)
                             "pagamento": pagamento,
                         }
                     )
 
-                    print(">>> INSERT PRODUTO (ADMIN) OK:", ADMIN_USER, cliente, produto_nome, produto_valor, pagamento)
+                    print(">>> INSERT PRODUTO ADMIN OK valor=", produto_valor)
+                else:
+                    print(">>> SEM PRODUTO -> não duplicou pro admin")
 
         return redirect("/historico")
 
@@ -349,6 +349,7 @@ def registrar():
         tipo=session.get("role"),
         usuario=session.get("usuario"),
     )
+
 
 @app.route("/historico")
 def historico():

@@ -190,17 +190,19 @@ def registrar():
     if "usuario" not in session:
         return redirect("/login")
 
+    ADMIN_USER = "mairon"  # dono/admin que recebe os lançamentos de produto
+
     if request.method == "POST":
         cabelo = to_float(request.form.get("cabelo"))
         barba = to_float(request.form.get("barba"))
         sobrancelha = to_float(request.form.get("sobrancelha"))
 
-        # Produto
+        # Produto (nome + valor)
         produto_nome_raw = (request.form.get("produto_nome") or "").strip()
         produto_nome_norm = produto_nome_raw.lower()
         produto_valor = to_float(request.form.get("produto_valor"))
 
-        # ✅ REGRA: se vier vazio/nenhum -> zera valor e salva NULL
+        # Regra de segurança: vazio/nenhum -> zera
         if produto_nome_norm in ("", "nenhum", "null", "none"):
             produto_nome = None
             produto_valor = 0.0
@@ -208,10 +210,6 @@ def registrar():
             produto_nome = produto_nome_raw
 
         desconto = to_float(request.form.get("desconto"))
-
-        total = cabelo + barba + sobrancelha + produto_valor - desconto
-        if total < 0:
-            total = 0.0
 
         # barbeiro correto
         if session.get("role") == "admin":
@@ -221,23 +219,25 @@ def registrar():
 
         cliente = (request.form.get("cliente") or "").strip()
 
-        # ✅ Forma de pagamento (obrigatória no form)
-        pagamento = (request.form.get("pagamento") or "nao_informado").strip().lower()
-
-        # ✅ Agora com timezone do Brasil
-        agora = datetime.now(TZ_BR)
+        agora = datetime.now()
         hoje = agora.date()
         hora = agora.strftime("%H:%M")
 
+        # ✅ total do barbeiro = só serviços (produto NÃO conta)
+        total_servicos = cabelo + barba + sobrancelha - desconto
+        if total_servicos < 0:
+            total_servicos = 0.0
+
         with engine.begin() as conn:
+            # 1) Lançamento do BARBEIRO: produto zerado
             conn.execute(
                 text("""
                     INSERT INTO vendas
                     (data, hora, cliente, barbeiro, cabelo, barba, sobrancelha,
-                     produto_nome, produto_valor, desconto, total, pagamento)
+                     produto_nome, produto_valor, desconto, total)
                     VALUES
                     (:data, :hora, :cliente, :barbeiro, :cabelo, :barba, :sobrancelha,
-                     :produto_nome, :produto_valor, :desconto, :total, :pagamento)
+                     :produto_nome, :produto_valor, :desconto, :total)
                 """),
                 {
                     "data": hoje,
@@ -247,15 +247,48 @@ def registrar():
                     "cabelo": round(cabelo, 2),
                     "barba": round(barba, 2),
                     "sobrancelha": round(sobrancelha, 2),
-                    "produto_nome": produto_nome,
-                    "produto_valor": round(produto_valor, 2),
+
+                    # BARBEIRO não recebe produto:
+                    "produto_nome": None,
+                    "produto_valor": 0.0,
+
                     "desconto": round(desconto, 2),
-                    "total": round(total, 2),
-                    "pagamento": pagamento,
+                    "total": round(total_servicos, 2),
                 }
             )
 
-        print(">>> INSERT OK:", barbeiro, cliente, total, pagamento)
+            # 2) Lançamento do ADMIN: só produto (quando for barbeiro e tiver produto)
+            if session.get("role") != "admin" and produto_valor > 0:
+                conn.execute(
+                    text("""
+                        INSERT INTO vendas
+                        (data, hora, cliente, barbeiro, cabelo, barba, sobrancelha,
+                         produto_nome, produto_valor, desconto, total)
+                        VALUES
+                        (:data, :hora, :cliente, :barbeiro, :cabelo, :barba, :sobrancelha,
+                         :produto_nome, :produto_valor, :desconto, :total)
+                    """),
+                    {
+                        "data": hoje,
+                        "hora": hora,
+                        "cliente": cliente,
+                        "barbeiro": ADMIN_USER,
+
+                        # admin recebe só produto
+                        "cabelo": 0.0,
+                        "barba": 0.0,
+                        "sobrancelha": 0.0,
+
+                        "produto_nome": produto_nome,
+                        "produto_valor": round(produto_valor, 2),
+
+                        # não duplica desconto no produto
+                        "desconto": 0.0,
+
+                        "total": round(produto_valor, 2),
+                    }
+                )
+
         return redirect("/historico")
 
     return render_template(

@@ -15,8 +15,8 @@ TZ_BR = ZoneInfo("America/Sao_Paulo")
 # USUÁRIOS (simples, no código)
 # =========================
 USUARIOS = {
-    "mairon": {"senha": "1234", "role": "admin"},
-    "vini": {"senha": "111", "role": "barbeiro"},
+    "mairon": {"senha": "3005", "role": "admin"},
+    "bruno": {"senha": "111", "role": "barbeiro"},
     "artur": {"senha": "222", "role": "barbeiro"},
 }
 

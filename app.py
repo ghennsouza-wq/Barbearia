@@ -764,3 +764,30 @@ def excluir_venda(venda_id: int):
     data_inicio = request.args.get("data_inicio", "") or ""
     data_fim = request.args.get("data_fim", "") or ""
     return redirect(f"/historico?data_inicio={data_inicio}&data_fim={data_fim}")
+
+@app.route("/excluir/<int:id>")
+def excluir(id):
+    if "usuario" not in session:
+        return redirect("/")
+
+    usuario = session["usuario"]
+    role = session["role"]
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    if role == "admin":
+        # admin pode excluir qualquer registro
+        cur.execute("DELETE FROM vendas WHERE id = %s", (id,))
+    else:
+        # barbeiro só pode excluir os próprios registros
+        cur.execute(
+            "DELETE FROM vendas WHERE id = %s AND barbeiro = %s",
+            (id, usuario)
+        )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return redirect("/historico")

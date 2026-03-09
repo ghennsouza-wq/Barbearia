@@ -59,9 +59,7 @@
         <th>Pagamento</th>
         <th>Desconto</th>
         <th>Total</th>
-        {% if tipo == "admin" %}
-          <th>Ações</th>
-        {% endif %}
+        <th>Ações</th>
     </tr>
 
     {% for v in vendas %}
@@ -74,7 +72,7 @@
         <td>R$ {{ v.barba }}</td>
         <td>R$ {{ v.sobrancelha }}</td>
 
-        <!-- ✅ Produto correto: nome + valor -->
+        <!-- Produto -->
         <td>
             {% if v.produto_nome %}
               {{ v.produto_nome }} (R$ {{ v.produto_valor }})
@@ -88,16 +86,19 @@
         <td style="color:red; font-weight:bold;">- R$ {{ v.desconto }}</td>
         <td style="color:green; font-weight:bold;">R$ {{ v.total }}</td>
 
-        {% if tipo == "admin" %}
         <td>
-          <form method="post"
-                action="/venda/{{ v.id }}/excluir?data_inicio={{ data_inicio }}&data_fim={{ data_fim }}"
-                onsubmit="return confirm('Tem certeza que deseja excluir esta venda?');"
-                style="display:inline;">
-            <button type="submit">Excluir</button>
-          </form>
+            {% if tipo == "admin" or v.barbeiro == usuario %}
+            <form method="post"
+                  action="/venda/{{ v.id }}/excluir?data_inicio={{ data_inicio }}&data_fim={{ data_fim }}"
+                  onsubmit="return confirm('Tem certeza que deseja excluir esta venda?');"
+                  style="display:inline;">
+                <button type="submit">Excluir</button>
+            </form>
+            {% else %}
+            —
+            {% endif %}
         </td>
-        {% endif %}
+
     </tr>
     {% endfor %}
 </table>
